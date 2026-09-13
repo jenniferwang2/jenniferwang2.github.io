@@ -24,6 +24,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="{{ '/assets/css/main.css' | relative_url }}">
+{%- comment -%}
+The build timestamp busts the browser cache. GitHub Pages serves assets with
+max-age=600, so without this a new page can load against the previous
+deploy's stylesheet for up to ten minutes.
+{%- endcomment -%}
+<link rel="stylesheet" href="{{ '/assets/css/main.css' | relative_url }}?v={{ site.time | date: '%s' }}">
 
 <link rel="icon" href="{{ '/assets/favicon.svg' | relative_url }}" type="image/svg+xml">

@@ -10,10 +10,10 @@ Settings → Pages → Source: `main` / root. Live in about a minute.
 ## Keeping it current
 
 - `_data/experience.yml` holds the three roles. Newest first.
-- `assets/resume.pdf` is the downloadable one-page version. **Re-copy it
-  whenever you update the LaTeX resume** — nothing syncs it automatically,
-  and the page content is maintained separately in `resume.html`.
-- To hide every download button, clear `resume_pdf` in `_config.yml`.
+- `assets/resume.pdf` is the one-page resume, shown inline on `/resume/`
+  (`resume.html`) with a download button beside it. **Re-copy it whenever
+  you update the LaTeX resume** — nothing syncs it automatically.
+- To hide every Resume button, clear `resume_pdf` in `_config.yml`.
 - `_projects/subwatch.md` and both files in `_writeups/` came with the
   original scaffold rather than from the resume. Delete them if they
   aren't yours.
@@ -31,6 +31,7 @@ the nav anchors to: hero, `#overview`, `#experience`, `#leadership`,
 | `_data/leadership.yml` | Leadership timeline |
 | `_projects/*.md` | One file per project card; each also gets its own page |
 | `writing.html` | `/writing/` index over `_writeups/` and `_posts/` |
+| `resume.html` | `/resume/` — the PDF embedded in the site, plus download |
 | `assets/css/main.css` | All the styling, hand-written, sectioned |
 | `_includes/scripts.html` | The only JavaScript. Progressive enhancement only |
 

@@ -1,0 +1,47 @@
+---
+layout: page
+title: Resume
+permalink: /resume/
+eyebrow: Resume
+lede: The one-page version. Everything here is expanded on elsewhere on the site.
+description: "Resume of Jennifer Wang — computing science student working in application security."
+---
+
+{%- comment -%}
+The PDF is shown inline so reading it never costs a download. <object> rather
+than <iframe>: where the browser has no inline PDF viewer (Chrome on Android),
+an iframe triggers a download, while <object> renders its fallback content.
+{%- endcomment -%}
+
+<section class="band band-tight">
+  <div class="wrap">
+    {%- if site.resume_pdf %}
+    {%- assign pdf = site.resume_pdf | relative_url %}
+    <div class="actions resume-actions" data-reveal>
+      <a class="btn" href="{{ pdf }}" download>
+        Download PDF
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <path d="M8 3v8m0 0L4.5 7.5M8 11l3.5-3.5M3 13h10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
+      <a class="btn btn-quiet" href="{{ pdf }}" target="_blank" rel="noopener">Open in a new tab</a>
+    </div>
+
+    <div class="resume-frame" data-reveal>
+      <object data="{{ pdf }}#view=FitH" type="application/pdf" aria-label="Resume of {{ site.author }} (PDF)">
+        <div class="resume-fallback">
+          <p>This browser can't show the PDF inline.</p>
+          <a class="band-link" href="{{ pdf }}" target="_blank" rel="noopener">
+            Open the resume
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+              <path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+        </div>
+      </object>
+    </div>
+    {%- else %}
+    <p class="empty">Set <code>resume_pdf</code> in <code>_config.yml</code> to show the resume here.</p>
+    {%- endif %}
+  </div>
+</section>

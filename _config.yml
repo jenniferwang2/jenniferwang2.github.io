@@ -11,8 +11,8 @@ linkedin: "jenniferwang12"
 url: "https://jenniferwang2.github.io"
 baseurl: ""
 
-# Drop a PDF at assets/resume.pdf to switch the download button on.
-# Clear this value and the button disappears everywhere.
+# The PDF shown on /resume/, which every Resume button links to.
+# Clear this value and the buttons disappear everywhere.
 resume_pdf: "/assets/resume.pdf"
 
 # The homepage is one scrolling page; these are anchors into it. A nav item

@@ -25,7 +25,7 @@
       {%- endfor -%}
 
       {%- if site.resume_pdf %}
-      <a class="nav-cta" href="{{ site.resume_pdf | relative_url }}" download>Resume</a>
+      <a class="nav-cta" href="{{ '/resume/' | relative_url }}"{% if page.url == '/resume/' %} aria-current="page"{% endif %}>Resume</a>
       {%- endif %}
     </nav>
   </div>

@@ -1,0 +1,50 @@
+---
+layout: default
+---
+<article class="wrap article">
+  <a class="back" href="{{ '/writing/' | relative_url }}">
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d="M13 8H4M7.5 4.5 4 8l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Writing
+  </a>
+
+  <header class="article-head">
+    <p class="eyebrow">{{ page.kind | default: 'Note' }}</p>
+    <h1>{{ page.title }}</h1>
+    {%- if page.summary %}<p class="lede">{{ page.summary }}</p>{% endif %}
+    <dl class="article-meta">
+      <div><dt>Published</dt><dd><time datetime="{{ page.date | date_to_xmlschema }}">{{ page.date | date: "%B %-d, %Y" }}</time></dd></div>
+      {%- if page.platform %}<div><dt>Platform</dt><dd>{{ page.platform }}</dd></div>{% endif %}
+      {%- if page.difficulty %}<div><dt>Difficulty</dt><dd>{{ page.difficulty }}</dd></div>{% endif %}
+    </dl>
+  </header>
+
+  <div class="prose">
+    {{ content }}
+  </div>
+
+  {%- if page.scope %}
+  <aside class="note">
+    <h2>Scope</h2>
+    <p>{{ page.scope }}</p>
+  </aside>
+  {%- endif %}
+
+  {%- assign stream = site.writeups | concat: site.posts | sort: "date" | reverse -%}
+  {%- if stream.size > 1 %}
+  <nav class="more" aria-label="More writing">
+    <h2 class="more-head">Read next</h2>
+    <div class="ledger">
+      {%- assign shown = 0 -%}
+      {%- for item in stream -%}
+        {%- if shown >= 2 -%}{%- break -%}{%- endif -%}
+        {%- if item.url != page.url -%}
+          {%- assign shown = shown | plus: 1 -%}
+          {% include entry.html item=item %}
+        {%- endif -%}
+      {%- endfor %}
+    </div>
+  </nav>
+  {%- endif %}
+</article>

@@ -1,0 +1,12 @@
+---
+layout: default
+---
+<div class="wrap">
+  <header class="page-head">
+    {%- if page.eyebrow %}<p class="eyebrow" data-reveal>{{ page.eyebrow }}</p>{% endif %}
+    <h1 data-reveal>{{ page.title }}</h1>
+    {%- if page.lede %}<p class="lede" data-reveal>{{ page.lede }}</p>{% endif %}
+  </header>
+</div>
+
+{{ content }}

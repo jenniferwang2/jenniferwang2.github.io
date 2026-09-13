@@ -1,0 +1,57 @@
+# Work experience, newest first — rendered on the homepage and on /experience/.
+#
+# Fields:
+#   role       job title
+#   org        employer
+#   org_url    optional link on the employer name
+#   location   optional, e.g. "Remote" or "Vancouver, BC"
+#   start/end  any string — "Jan 2026", "2023". Use "Present" for a current role.
+#   summary    one sentence on what the team owned and what you were responsible for
+#   highlights specific things you built, found, or shipped, with outcomes
+#   stack      optional tools line, rendered in mono
+#
+# `highlights` and `stack` only appear on /experience/ and /resume/. The
+# homepage shows role, org, dates, and summary.
+
+- role: "Cybersecurity Intern"
+  org: "Seaspan ULC"
+  location: "Vancouver, BC"
+  start: "Jan 2026"
+  end: "Aug 2026"
+  summary: >-
+    Vulnerability management, data loss prevention, and compliance evidence
+    for a shipbuilder operating under CMMC and Controlled Goods requirements.
+  highlights:
+    - "Triaged and closed 708 critical and high vulnerabilities across 200+ servers — validating fixes, reviewing false positives, and cutting the standing backlog to roughly 30 open items."
+    - "Redesigned vulnerability tracking to flag findings past remediation SLA or stalled without owner action, which forced formal risk-acceptance sign-off and escalated overdue items to management."
+    - "Authored and tuned 35 Cyberhaven DLP policies covering GDPR and export-controlled data. Reviewing ~24,000 events surfaced a suspected exfiltration pattern; tracing conflicting sensor classifications with HR confirmed staff were moving data to personal cloud storage, and the policy moved from monitoring to blocking."
+    - "Built and validated a Controlled Goods secure server for the Victoria site, testing permitted versus blocked functionality inside the enclave and writing the end-to-end access guide — supporting CMMC Level 2 certification and CUI handling."
+    - "Monitored external attack surface and threat intelligence feeds, escalating confirmed credential exposures to incident response alongside findings on outdated TLS and missing HTTP security headers."
+    - "Wrote the quarterly security reports and KPIs that the CFO distributed to executive leadership, and delivered awareness training to ~200 payroll and finance staff."
+  stack: "Nessus/Tenable · Microsoft Defender for Cloud · Cyberhaven DLP · Apptega · Styxview"
+
+- role: "Undergraduate Teaching Assistant"
+  org: "University of Alberta"
+  location: "Edmonton, AB"
+  start: "Sept 2024"
+  end: "Dec 2025"
+  summary: >-
+    Coordinated a team of teaching assistants and replaced the manual grading
+    path with a tested pipeline.
+  highlights:
+    - "Led a team of 10+ TAs — weekly goals, standups, clear ownership, and a shared issues board that kept grading and labs on schedule."
+    - "Built a CI grading pipeline in Bash and GitHub Actions that compiles C submissions and runs unit tests automatically, replacing per-TA setup and making results consistent across the team."
+  stack: "Bash · GitHub Actions · C"
+
+- role: "Machine Learning Research Intern"
+  org: "Alberta Machine Intelligence Institute (Amii)"
+  location: "Edmonton, AB"
+  start: "Sept 2023"
+  end: "Apr 2024"
+  summary: >-
+    Research engineering on the data pipeline a machine learning group
+    depended on.
+  highlights:
+    - "Led a 3-person effort building a Python and pandas pipeline that turned raw 2D level data into token-labeled datasets, replacing a manual process and cutting preparation time substantially."
+    - "Shipped a CLI and notebook interface so researchers could run the pipeline themselves; added caching and batched vectorized operations to reduce processing time and compute cost per run, with pytest coverage to catch silent data-processing errors."
+  stack: "Python · pandas · pytest"

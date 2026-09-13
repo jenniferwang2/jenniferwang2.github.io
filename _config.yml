@@ -1,15 +1,31 @@
 title: "Jennifer Wang"
-tagline: "Security engineering notes"
+tagline: "Software engineer working in application security"
+description: "Jennifer Wang — computing science student at the University of Alberta working in application security. Experience, projects, and writing."
 author: "Jennifer Wang"
-email: "jenniferwang669@gmail.com"
-github: "jenniferwang12"
+email: "jennif11@ualberta.ca"
+
+# Handles.
+github: "jenniferwang2"
 linkedin: "jenniferwang12"
-url: "https://jenniferwang.github.io"
+
+url: "https://jenniferwang2.github.io"
 baseurl: ""
+
+# Drop a PDF at assets/resume.pdf to switch the download button on.
+# Clear this value and the button disappears everywhere.
+resume_pdf: "/assets/resume.pdf"
+
+nav:
+  - label: "Experience"
+    url: "/experience/"
+  - label: "Projects"
+    url: "/projects/"
+  - label: "Writing"
+    url: "/writing/"
 
 markdown: kramdown
 highlighter: rouge
-permalink: /log/:title/
+permalink: /writing/:title/
 
 kramdown:
   input: GFM
@@ -19,21 +35,21 @@ kramdown:
 collections:
   writeups:
     output: true
-    permalink: /writeups/:name/
+    permalink: /writing/:name/
   projects:
     output: true
     permalink: /projects/:name/
 
 defaults:
   - scope: { path: "", type: "writeups" }
-    values: { layout: "writeup" }
-  - scope: { path: "", type: "projects" }
-    values: { layout: "writeup" }
+    values: { layout: "entry", kind: "Writeup" }
   - scope: { path: "", type: "posts" }
-    values: { layout: "writeup", kind: "Log" }
+    values: { layout: "entry", kind: "Note" }
+  - scope: { path: "", type: "projects" }
+    values: { layout: "project" }
 
 exclude:
   - README.md
-  - preview.html
   - Gemfile
   - Gemfile.lock
+  - vendor

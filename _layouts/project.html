@@ -1,0 +1,40 @@
+---
+layout: default
+---
+<article class="wrap article">
+  <a class="back" href="{{ '/projects/' | relative_url }}">
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d="M13 8H4M7.5 4.5 4 8l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Projects
+  </a>
+
+  <header class="article-head">
+    <p class="eyebrow">Project</p>
+    <h1>{{ page.title }}</h1>
+    {%- if page.summary %}<p class="lede">{{ page.summary }}</p>{% endif %}
+    <dl class="article-meta">
+      {%- if page.stack %}<div><dt>Built with</dt><dd>{{ page.stack }}</dd></div>{% endif %}
+      {%- if page.date %}<div><dt>Year</dt><dd><time datetime="{{ page.date | date: '%Y' }}">{{ page.date | date: "%Y" }}</time></dd></div>{% endif %}
+      {%- if page.status %}<div><dt>Context</dt><dd>{{ page.status }}</dd></div>{% endif %}
+    </dl>
+
+    {%- if page.repo or page.link %}
+    <div class="actions">
+      {%- if page.repo %}<a class="btn" href="{{ page.repo }}">View source</a>{% endif %}
+      {%- if page.link %}<a class="btn btn-quiet" href="{{ page.link }}">Live</a>{% endif %}
+    </div>
+    {%- endif %}
+  </header>
+
+  <div class="prose">
+    {{ content }}
+  </div>
+
+  {%- if page.scope %}
+  <aside class="note">
+    <h2>Scope</h2>
+    <p>{{ page.scope }}</p>
+  </aside>
+  {%- endif %}
+</article>

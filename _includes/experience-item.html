@@ -1,0 +1,36 @@
+{%- comment -%}
+One role on the experience timeline. Pass: include.job, include.detailed
+{%- endcomment -%}
+<li class="role" data-reveal>
+  <div class="role-when">
+    <span class="role-dates">
+      {{ include.job.start }}{% if include.job.end %} <span class="dash">—</span> {{ include.job.end }}{% endif %}
+    </span>
+    {%- if include.job.location %}<span class="role-place">{{ include.job.location }}</span>{% endif -%}
+  </div>
+
+  <div class="role-what">
+    <h3 class="role-title">{{ include.job.role }}</h3>
+    <p class="role-org">
+      {%- if include.job.org_url -%}
+        <a href="{{ include.job.org_url }}">{{ include.job.org }}</a>
+      {%- else -%}
+        {{ include.job.org }}
+      {%- endif -%}
+    </p>
+
+    {%- if include.job.summary %}<p class="role-summary">{{ include.job.summary }}</p>{% endif -%}
+
+    {%- if include.detailed and include.job.highlights %}
+    <ul class="role-highlights">
+      {%- for line in include.job.highlights %}
+      <li>{{ line }}</li>
+      {%- endfor %}
+    </ul>
+    {%- endif -%}
+
+    {%- if include.detailed and include.job.stack %}
+    <p class="role-stack">{{ include.job.stack }}</p>
+    {%- endif -%}
+  </div>
+</li>

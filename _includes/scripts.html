@@ -1,0 +1,80 @@
+<script>
+/* Progressive enhancement only. Everything below is optional polish —
+   the page is complete and readable with JavaScript disabled. */
+(function () {
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* --- Masthead: hairline appears once you leave the top ------------- */
+  var mast = document.getElementById('masthead');
+  var bar = document.getElementById('progress-bar');
+
+  function onScroll() {
+    var y = window.scrollY || window.pageYOffset;
+    if (mast) mast.dataset.scrolled = y > 8 ? 'true' : 'false';
+    if (bar) {
+      var max = document.documentElement.scrollHeight - window.innerHeight;
+      bar.style.transform = 'scaleX(' + (max > 0 ? Math.min(y / max, 1) : 0) + ')';
+    }
+  }
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll, { passive: true });
+
+  /* --- Scroll reveal: one subtle rise per element, once -------------- */
+  var targets = document.querySelectorAll('[data-reveal]');
+
+  if (reduced || !('IntersectionObserver' in window)) {
+    for (var i = 0; i < targets.length; i++) targets[i].classList.add('is-in');
+  } else {
+    /* Stagger the children of a group so a list arrives as a sequence
+       rather than a block. */
+    document.querySelectorAll('[data-reveal-group]').forEach(function (group) {
+      var step = parseInt(group.dataset.revealGroup, 10) || 60;
+      group.querySelectorAll(':scope > [data-reveal]').forEach(function (el, n) {
+        el.style.transitionDelay = Math.min(n * step, 400) + 'ms';
+      });
+    });
+
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        e.target.classList.add('is-in');
+        io.unobserve(e.target);
+      });
+    }, { rootMargin: '0px 0px -10% 0px', threshold: 0.15 });
+
+    targets.forEach(function (el) { io.observe(el); });
+  }
+})();
+</script>
+
+{%- if page.filters %}
+<script>
+/* Writing index: filter by kind, and hide any year that empties out. */
+(function () {
+  var buttons = document.querySelectorAll('[data-filter]');
+  var entries = document.querySelectorAll('.entry');
+  var years = document.querySelectorAll('.year');
+  if (!buttons.length) return;
+
+  function apply(kind) {
+    entries.forEach(function (el) {
+      el.hidden = !(kind === 'all' || el.dataset.kind === kind);
+    });
+    years.forEach(function (group) {
+      var visible = group.querySelectorAll('.entry:not([hidden])').length;
+      group.hidden = visible === 0;
+    });
+  }
+
+  buttons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      buttons.forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b === btn));
+      });
+      apply(btn.dataset.filter);
+    });
+  });
+})();
+</script>
+{%- endif %}

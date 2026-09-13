@@ -1,0 +1,31 @@
+---
+layout: null
+sitemap: false
+permalink: /feed.xml
+---
+{%- assign stream = site.writeups | concat: site.posts | sort: "date" | reverse -%}
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>{{ site.title }} — Writing</title>
+  <subtitle>{{ site.description | xml_escape }}</subtitle>
+  <link href="{{ '/feed.xml' | absolute_url }}" rel="self" type="application/atom+xml"/>
+  <link href="{{ '/writing/' | absolute_url }}" rel="alternate" type="text/html"/>
+  <id>{{ '/feed.xml' | absolute_url }}</id>
+  <updated>{% if stream.first %}{{ stream.first.date | date_to_xmlschema }}{% else %}{{ site.time | date_to_xmlschema }}{% endif %}</updated>
+  <author>
+    <name>{{ site.author }}</name>
+    <email>{{ site.email }}</email>
+  </author>
+{%- for item in stream %}
+  <entry>
+    <title>{{ item.title | xml_escape }}</title>
+    <link href="{{ item.url | absolute_url }}" rel="alternate" type="text/html"/>
+    <id>{{ item.url | absolute_url }}</id>
+    <published>{{ item.date | date_to_xmlschema }}</published>
+    <updated>{{ item.date | date_to_xmlschema }}</updated>
+    <category term="{{ item.kind | default: 'Note' | xml_escape }}"/>
+    <summary type="text">{{ item.summary | default: item.excerpt | strip_html | normalize_whitespace | xml_escape }}</summary>
+    <content type="html">{{ item.content | strip_newlines | xml_escape }}</content>
+  </entry>
+{%- endfor %}
+</feed>

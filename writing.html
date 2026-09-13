@@ -1,0 +1,48 @@
+---
+layout: page
+title: Writing
+permalink: /writing/
+eyebrow: Writing
+lede: CTF and lab writeups, plus notes on security research. Written so the next person does not have to guess.
+description: "CTF writeups and security research notes by Jennifer Wang."
+filters: true
+---
+
+<section class="band band-tight">
+  <div class="wrap">
+    {%- assign stream = site.writeups | concat: site.posts | sort: "date" | reverse %}
+
+    {%- if stream.size > 0 %}
+    <div class="toolbar" data-reveal>
+      {%- comment -%}
+      A filter button only appears once there is something for it to filter.
+      {%- endcomment -%}
+      {%- if site.writeups.size > 0 and site.posts.size > 0 %}
+      <div class="filters" role="group" aria-label="Filter writing by kind">
+        <button type="button" class="filter" data-filter="all" aria-pressed="true">Everything</button>
+        <button type="button" class="filter" data-filter="Writeup" aria-pressed="false">Writeups</button>
+        <button type="button" class="filter" data-filter="Note" aria-pressed="false">Notes</button>
+      </div>
+      {%- else %}
+      <span></span>
+      {%- endif %}
+      <span class="count">{{ stream.size }} {% if stream.size == 1 %}entry{% else %}entries{% endif %}</span>
+    </div>
+
+    {%- assign years = stream | group_by_exp: "item", "item.date | date: '%Y'" %}
+    {%- for year in years %}
+    <section class="year">
+      <h2 class="year-label" data-reveal>{{ year.name }}</h2>
+      <div class="ledger">
+        {%- for item in year.items %}{% include entry.html item=item %}{% endfor %}
+      </div>
+    </section>
+    {%- endfor %}
+
+    {%- else %}
+    <p class="empty">
+      Add a writeup to <code>_writeups/</code> or a note to <code>_posts/</code>.
+    </p>
+    {%- endif %}
+  </div>
+</section>

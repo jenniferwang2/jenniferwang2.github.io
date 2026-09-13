@@ -1,21 +1,23 @@
 ---
-layout: default
-title: Tools
-description: Things I have built.
+layout: page
+title: Projects
+permalink: /projects/
+eyebrow: Projects
+lede: Tools and small systems I have built, mostly to remove work I was doing by hand.
+description: "Software and security tooling built by Jennifer Wang."
 ---
-<section class="shell band">
-  <div class="band-head">
-    <h2>Tools</h2>
-    <span class="count">{{ site.projects.size }} total</span>
-  </div>
-  <div class="tools">
-    {% assign items = site.projects | sort: "date" | reverse %}
-    {% for item in items %}
-    <a class="tool" href="{{ item.url | relative_url }}">
-      <h3>{{ item.title }}</h3>
-      <p>{{ item.summary }}</p>
-      <span class="tool-meta">{{ item.stack }}</span>
-    </a>
-    {% endfor %}
+
+<section class="band band-tight">
+  <div class="wrap">
+    {%- assign items = site.projects | sort: "date" | reverse %}
+    {%- if items.size > 0 %}
+    <div class="cards" data-reveal-group="70">
+      {%- for item in items %}
+        {% include project-card.html item=item %}
+      {%- endfor %}
+    </div>
+    {%- else %}
+    <p class="empty">Add a Markdown file to <code>_projects/</code> to list a project here.</p>
+    {%- endif %}
   </div>
 </section>

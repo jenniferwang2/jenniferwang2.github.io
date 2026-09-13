@@ -1,72 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% if page.title %}{{ page.title }} — {{ site.title }}{% else %}{{ site.title }} — {{ site.tagline }}{% endif %}</title>
-  <meta name="description" content="{{ page.description | default: site.tagline }}">
-  <meta name="color-scheme" content="light dark">
-
-  <meta property="og:title" content="{{ page.title | default: site.title }}">
-  <meta property="og:description" content="{{ page.description | default: site.tagline }}">
-  <meta property="og:type" content="website">
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="{{ '/assets/css/main.css' | relative_url }}">
+  {%- include head.html -%}
+  <script>document.documentElement.classList.add('js');</script>
 </head>
 <body>
 
-<header class="masthead" id="masthead">
-  <div class="shell masthead-inner">
-    <a class="wordmark" href="{{ '/' | relative_url }}">{{ site.author }}</a>
-    <nav class="nav">
-      <a href="{{ '/writeups/' | relative_url }}">Writeups</a>
-      <a href="{{ '/log/' | relative_url }}">Log</a>
-      <a href="{{ '/projects/' | relative_url }}">Tools</a>
-      <a class="resume" href="{{ '/resume/' | relative_url }}">Résumé</a>
-    </nav>
-  </div>
-</header>
+{%- include masthead.html %}
 
 <main id="main">
   {{ content }}
 </main>
 
-<footer class="footer">
-  <div class="shell footer-inner">
-    <span>{{ site.author }} — {{ 'now' | date: "%Y" }}</span>
-    <span class="footer-links">
-      <a href="https://github.com/{{ site.github }}">GitHub</a>
-      <a href="https://linkedin.com/in/{{ site.linkedin }}">LinkedIn</a>
-      <a href="mailto:{{ site.email }}">Email</a>
-    </span>
-  </div>
-</footer>
+{%- include footer.html %}
+{%- include scripts.html %}
 
-<script>
-  var mast = document.getElementById('masthead');
-  var onScroll = function () {
-    mast.dataset.scrolled = window.scrollY > 8 ? 'true' : 'false';
-  };
-  onScroll();
-  window.addEventListener('scroll', onScroll, { passive: true });
-</script>
-{% if page.ledger %}
-<script>
-  var filters = document.querySelectorAll('.filter');
-  var entries = document.querySelectorAll('.entry');
-  filters.forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var kind = btn.dataset.kind;
-      filters.forEach(function (b) { b.setAttribute('aria-pressed', b === btn); });
-      entries.forEach(function (e) {
-        e.hidden = !(kind === 'all' || e.dataset.kind === kind);
-      });
-    });
-  });
-</script>
-{% endif %}
 </body>
 </html>

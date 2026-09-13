@@ -3,6 +3,12 @@ title: "Lavender"
 date: 2025-01-01
 stack: "Python · Django REST Framework · Docker · SQLite · JavaScript"
 status: "Team course project"
+tags:
+  - "Python"
+  - "Django REST Framework"
+  - "Federation"
+  - "AuthN/AuthZ"
+  - "Docker"
 summary: "A federated social platform where independent servers push posts to each other's followers."
 # Uncomment and point at the real repo to add a "View source" button:
 # repo: "https://github.com/jenniferwang2/lavender"

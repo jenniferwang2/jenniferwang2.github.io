@@ -9,13 +9,24 @@
 
     <nav class="nav" aria-label="Sections">
       {%- for item in site.nav -%}
-        {%- assign is_current = false -%}
-        {%- if page.url == item.url -%}{%- assign is_current = true -%}{%- endif -%}
-        {%- if item.url == '/writing/' and page.layout == 'entry' -%}{%- assign is_current = true -%}{%- endif -%}
-        {%- if item.url == '/projects/' and page.layout == 'project' -%}{%- assign is_current = true -%}{%- endif -%}
-        <a href="{{ item.url | relative_url }}"{% if is_current %} aria-current="page"{% endif %}>{{ item.label }}</a>
+        {%- if item.url contains '#' -%}
+          {%- comment -%}
+          Anchor into the homepage. On any other page it needs the full path,
+          and the scroll-spy only runs where the target sections exist.
+          {%- endcomment -%}
+          {%- assign anchor = item.url | split: '#' | last -%}
+          <a href="{{ '/' | relative_url }}#{{ anchor }}"{% if page.url == '/' %} data-spy="{{ anchor }}"{% endif %}>{{ item.label }}</a>
+        {%- else -%}
+          {%- assign is_current = false -%}
+          {%- if page.url == item.url -%}{%- assign is_current = true -%}{%- endif -%}
+          {%- if item.url == '/writing/' and page.layout == 'entry' -%}{%- assign is_current = true -%}{%- endif -%}
+          <a href="{{ item.url | relative_url }}"{% if is_current %} aria-current="page"{% endif %}>{{ item.label }}</a>
+        {%- endif -%}
       {%- endfor -%}
-      <a class="nav-cta" href="{{ '/resume/' | relative_url }}"{% if page.url == '/resume/' %} aria-current="page"{% endif %}>Resume</a>
+
+      {%- if site.resume_pdf %}
+      <a class="nav-cta" href="{{ site.resume_pdf | relative_url }}" download>Resume</a>
+      {%- endif %}
     </nav>
   </div>
 

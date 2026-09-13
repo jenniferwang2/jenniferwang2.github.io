@@ -1,4 +1,4 @@
-# Work experience, newest first — rendered on the homepage and on /experience/.
+# Work experience, newest first — rendered on the homepage timeline.
 #
 # Fields:
 #   role       job title
@@ -10,8 +10,8 @@
 #   highlights specific things you built, found, or shipped, with outcomes
 #   stack      optional tools line, rendered in mono
 #
-# `highlights` and `stack` only appear on /experience/ and /resume/. The
-# homepage shows role, org, dates, and summary.
+# Every field renders on the homepage timeline; the same shape is used by
+# _data/leadership.yml.
 
 - role: "Cybersecurity Intern"
   org: "Seaspan ULC"

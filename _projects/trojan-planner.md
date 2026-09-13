@@ -3,6 +3,12 @@ title: "Trojan Planner"
 date: 2024-01-01
 stack: "Java · Android Studio · Firebase · JUnit"
 status: "Course project"
+tags:
+  - "Java"
+  - "Android"
+  - "Firebase"
+  - "RBAC"
+  - "JUnit"
 summary: "An Android event-hosting app built around role-based access control for participants, hosts, and admins."
 # Uncomment and point at the real repo to add a "View source" button:
 # repo: "https://github.com/jenniferwang2/trojan-planner"

@@ -15,13 +15,19 @@ baseurl: ""
 # Clear this value and the button disappears everywhere.
 resume_pdf: "/assets/resume.pdf"
 
+# The homepage is one scrolling page; these are anchors into it. A nav item
+# whose url has no "#" is treated as a separate page.
 nav:
+  - label: "Overview"
+    url: "/#overview"
   - label: "Experience"
-    url: "/experience/"
+    url: "/#experience"
   - label: "Projects"
-    url: "/projects/"
+    url: "/#projects"
   - label: "Writing"
     url: "/writing/"
+  - label: "Contact"
+    url: "/#contact"
 
 markdown: kramdown
 highlighter: rouge

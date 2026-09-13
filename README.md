@@ -20,20 +20,28 @@ Settings → Pages → Source: `main` / root. Live in about a minute.
 
 ## Structure
 
+The homepage is one scrolling page. Sections in order, each with an `id`
+the nav anchors to: hero, `#overview`, `#experience`, `#leadership`,
+`#skills`, `#projects`, `#writing`, `#contact`.
+
 | Path | What it is |
 | --- | --- |
-| `index.html` | Homepage: statement, experience, projects, resume |
-| `experience.html` | Full role history, rendered from `_data/experience.yml` |
-| `projects.html` | Grid of everything in `_projects/` |
-| `writing.html` | One index over `_writeups/` and `_posts/` |
-| `resume.html` | Readable resume + PDF download |
+| `index.html` | The whole homepage. Skills and the four focus cards are inline here |
+| `_data/experience.yml` | Work timeline |
+| `_data/leadership.yml` | Leadership timeline |
+| `_projects/*.md` | One file per project card; each also gets its own page |
+| `writing.html` | `/writing/` index over `_writeups/` and `_posts/` |
 | `assets/css/main.css` | All the styling, hand-written, sectioned |
 | `_includes/scripts.html` | The only JavaScript. Progressive enhancement only |
 
+Nav items come from `nav:` in `_config.yml`. A url containing `#` is
+treated as a homepage anchor and gets scroll-spy highlighting; anything
+else is treated as a separate page.
+
 ## Adding content
 
-**A role** — edit `_data/experience.yml`. Newest first. `highlights` and
-`stack` only render on `/experience/` and `/resume/`, not the homepage.
+**A role** — edit `_data/experience.yml`. Newest first. Community roles go
+in `_data/leadership.yml`, same shape, its own timeline.
 
 **A writeup** — new file in `_writeups/`, no date prefix in the filename
 (the URL comes from the filename, the date comes from front matter):
@@ -60,21 +68,30 @@ title: "name"
 date: 2026-03-01
 stack: "Python · asyncio"
 status: "Maintained"
+tags: ["Python", "asyncio"]   # rendered as #tags on the card
 summary: "One line on what it does."
-repo: "https://github.com/jenniferwang2/name"   # optional
+repo: "https://github.com/jenniferwang2/name"   # optional, adds a GitHub icon
 ---
 ```
+
+Cards have no screenshots by design — each leads with a monogram plate
+generated from the first two letters of the title.
 
 Both `kind: "Writeup"` and `kind: "Note"` are applied automatically by
 `_config.yml` defaults; they drive the filter buttons on `/writing/`.
 
 ## Design notes
 
-White base, one accent blue, hairline rules, Geist. Motion is deliberate
-and limited to four gestures: the hero arrival, a scroll-reveal rise,
-hairlines drawing themselves in on the timeline, and hover states. Every
-one of them is disabled under `prefers-reduced-motion`, and the page is
-complete with JavaScript off.
+Section format is borrowed from hamidatb.github.io — eyebrow over a large
+heading, alternating vertical timeline, tag-carrying project cards — but
+rendered in a white Apple-ish palette rather than that site's dark theme.
+
+White base, one accent blue plus four tag hues, hairline rules, Geist.
+Motion is deliberate and limited: the hero arrival, a scroll-reveal rise,
+timeline cards entering from the side they sit on, and hover states. Every
+one is disabled under `prefers-reduced-motion`, and the page is complete
+with JavaScript off (including the nav, which falls back to plain
+anchors).
 
 Keep it that way. No dark mode — the site is committed to the light palette.
 

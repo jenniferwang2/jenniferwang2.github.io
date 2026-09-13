@@ -1,0 +1,46 @@
+{%- comment -%}
+One entry on a vertical timeline. Pass: include.item
+Handles both shapes — `start`/`end` (experience) and a single `date`
+(leadership). Any missing field is simply not rendered.
+{%- endcomment -%}
+<li class="tl-item">
+  <div class="tl-card" data-reveal>
+    <h3 class="tl-role">{{ include.item.role }}</h3>
+    <p class="tl-org">
+      {%- if include.item.org_url -%}
+        <a href="{{ include.item.org_url }}">{{ include.item.org }}</a>
+      {%- else -%}
+        {{ include.item.org }}
+      {%- endif -%}
+    </p>
+
+    {%- if include.item.summary %}
+    <p class="tl-summary">{{ include.item.summary }}</p>
+    {%- endif %}
+
+    {%- if include.item.highlights %}
+    <ul class="tl-points">
+      {%- for line in include.item.highlights %}
+      <li>{{ line }}</li>
+      {%- endfor %}
+    </ul>
+    {%- endif %}
+
+    {%- if include.item.stack %}
+    <p class="tl-stack">{{ include.item.stack }}</p>
+    {%- endif %}
+  </div>
+
+  <div class="tl-node" aria-hidden="true"><span class="tl-dot"></span></div>
+
+  <div class="tl-when">
+    <span class="tl-date">
+      {%- if include.item.date -%}
+        {{ include.item.date }}
+      {%- else -%}
+        {{ include.item.start }}{% if include.item.end %} <span class="dash">—</span> {{ include.item.end }}{% endif %}
+      {%- endif -%}
+    </span>
+    {%- if include.item.location %}<span class="tl-place">{{ include.item.location }}</span>{% endif %}
+  </div>
+</li>

@@ -3,6 +3,11 @@ title: "subwatch"
 date: 2026-02-01
 stack: "Python · asyncio"
 status: "Maintained"
+tags:
+  - "Python"
+  - "asyncio"
+  - "Certificate Transparency"
+  - "Recon"
 summary: "Watches a domain's certificate transparency logs and alerts on new subdomains."
 # Uncomment and point at the real repo to add a "View source" button:
 # repo: "https://github.com/jenniferwang2/subwatch"

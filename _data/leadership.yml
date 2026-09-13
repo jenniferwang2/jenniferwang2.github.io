@@ -1,0 +1,24 @@
+# Leadership and community roles, newest first. Same shape as
+# _data/experience.yml, and rendered on the same timeline.
+#
+# Your resume lists both of these without dates, so `date` below says
+# "Current" — change it to real ranges (e.g. "Sept 2025 – Present") when
+# you have them, or delete the field and the timeline leaves that slot empty.
+
+- role: "Club Organizer"
+  org: "CHADS — Cybersecurity, Hacking & Digital Security Club"
+  location: "University of Alberta"
+  date: "Current"
+  summary: >-
+    Organizer for the university's cybersecurity and hacking club, running
+    the programming that gets students hands-on with security outside of
+    coursework.
+
+- role: "Club Organizer"
+  org: "WiCyS — Women in Cybersecurity, UAlberta Chapter"
+  location: "University of Alberta"
+  date: "Current"
+  summary: >-
+    Organizer for the campus chapter of Women in Cybersecurity, building a
+    community and a route into the field for students who are not yet sure
+    there is one for them.

@@ -45,6 +45,42 @@
 
     targets.forEach(function (el) { io.observe(el); });
   }
+
+  /* --- Scroll spy: mark the nav link for the section in view --------- */
+  var spies = document.querySelectorAll('.nav a[data-spy]');
+
+  if (spies.length && 'IntersectionObserver' in window) {
+    var byId = {};
+    var watched = [];
+
+    spies.forEach(function (link) {
+      var section = document.getElementById(link.dataset.spy);
+      if (!section) return;
+      byId[link.dataset.spy] = link;
+      watched.push(section);
+    });
+
+    /* Whichever watched section is nearest the top of the viewport wins,
+       so a short section between two tall ones still registers. */
+    var visible = {};
+
+    var spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        visible[e.target.id] = e.isIntersecting;
+      });
+
+      var current = null;
+      for (var n = 0; n < watched.length; n++) {
+        if (visible[watched[n].id]) { current = watched[n].id; break; }
+      }
+
+      spies.forEach(function (link) {
+        link.classList.toggle('is-active', link.dataset.spy === current);
+      });
+    }, { rootMargin: '-20% 0px -55% 0px' });
+
+    watched.forEach(function (section) { spy.observe(section); });
+  }
 })();
 </script>
 

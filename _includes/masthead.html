@@ -9,6 +9,8 @@
 
     <nav class="nav" aria-label="Sections">
       {%- for item in site.nav -%}
+        {%- comment -%}Hide Writing until there is something to read.{%- endcomment -%}
+        {%- if item.url == '/writing/' and site.writeups.size == 0 and site.posts.size == 0 -%}{%- continue -%}{%- endif -%}
         {%- if item.url contains '#' -%}
           {%- comment -%}
           Anchor into the homepage. On any other page it needs the full path,

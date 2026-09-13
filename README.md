@@ -14,9 +14,9 @@ Settings → Pages → Source: `main` / root. Live in about a minute.
   (`resume.html`) with a download button beside it. **Re-copy it whenever
   you update the LaTeX resume** — nothing syncs it automatically.
 - To hide every Resume button, clear `resume_pdf` in `_config.yml`.
-- `_projects/subwatch.md` and both files in `_writeups/` came with the
-  original scaffold rather than from the resume. Delete them if they
-  aren't yours.
+- Writing is empty for now. Until `_writeups/` or `_posts/` has an entry,
+  the Writing nav link, homepage section, RSS links, and the 404 page's
+  "Browse writing" button all stay hidden; adding one brings them back.
 
 ## Structure
 

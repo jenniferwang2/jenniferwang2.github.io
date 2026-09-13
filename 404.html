@@ -13,7 +13,9 @@ sitemap: false
     <p>The link may be out of date, or the page may have moved.</p>
     <div class="hero-actions">
       <a class="btn" href="{{ '/' | relative_url }}">Back home</a>
+      {%- if site.writeups.size > 0 or site.posts.size > 0 %}
       <a class="btn btn-quiet" href="{{ '/writing/' | relative_url }}">Browse writing</a>
+      {%- endif %}
     </div>
   </div>
 </section>

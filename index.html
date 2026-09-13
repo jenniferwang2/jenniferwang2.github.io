@@ -1,0 +1,55 @@
+---
+layout: default
+ledger: true
+---
+
+<section class="shell hero">
+  <h1 class="reveal">{{ site.author }}</h1>
+  <p class="hero-statement reveal">
+    I break things in a lab, then write down exactly how,
+    so the next person doesn't have to guess.
+    <em>Currently studying for the OSCP.</em>
+  </p>
+
+  <div class="now reveal">
+    <dl>
+      <dt>Focus</dt>
+      <dd>Active Directory attack paths, Linux privilege escalation</dd>
+      <dt>Studying</dt>
+      <dd>OSCP — exam booked for January</dd>
+      <dt>Building</dt>
+      <dd>A self-hosted range on Proxmox, 6 nodes</dd>
+      <dt>Reading</dt>
+      <dd>The Art of Software Security Assessment</dd>
+    </dl>
+  </div>
+</section>
+
+<section class="shell band">
+  <div class="band-head">
+    <h2>Work log</h2>
+    <span class="count">{{ site.writeups.size | plus: site.projects.size | plus: site.posts.size }} entries</span>
+  </div>
+
+  <div class="filters">
+    <button class="filter" data-kind="all" aria-pressed="true">Everything</button>
+    <button class="filter" data-kind="Writeup" aria-pressed="false">Writeups</button>
+    <button class="filter" data-kind="Tool" aria-pressed="false">Tools</button>
+    <button class="filter" data-kind="Log" aria-pressed="false">Log</button>
+    <button class="filter" data-kind="Cert" aria-pressed="false">Certs</button>
+  </div>
+
+  <div class="ledger">
+    {% assign everything = site.writeups | concat: site.projects | concat: site.posts | sort: "date" | reverse %}
+    {% for item in everything %}
+    <a class="entry" href="{{ item.url | relative_url }}" data-kind="{{ item.kind | default: 'Writeup' }}">
+      <span class="entry-date">{{ item.date | date: "%Y.%m.%d" }}</span>
+      <span class="entry-body">
+        <span class="entry-title">{{ item.title }}</span>
+        {% if item.summary %}<span class="entry-note">{{ item.summary }}</span>{% endif %}
+      </span>
+      <span class="entry-kind">{{ item.kind | default: 'Writeup' }}</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>

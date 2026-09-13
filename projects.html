@@ -1,0 +1,21 @@
+---
+layout: default
+title: Tools
+description: Things I have built.
+---
+<section class="shell band">
+  <div class="band-head">
+    <h2>Tools</h2>
+    <span class="count">{{ site.projects.size }} total</span>
+  </div>
+  <div class="tools">
+    {% assign items = site.projects | sort: "date" | reverse %}
+    {% for item in items %}
+    <a class="tool" href="{{ item.url | relative_url }}">
+      <h3>{{ item.title }}</h3>
+      <p>{{ item.summary }}</p>
+      <span class="tool-meta">{{ item.stack }}</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>

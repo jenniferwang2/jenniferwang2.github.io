@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why This Blog Exists · Backend From First Principles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF1F4; --card:#FFF;
+  --ink:#16202B; --ink-soft:#53616F; --ink-faint:#8695A3;
+  --rule:#CBD4DC; --rule-soft:#DDE3E9;
+  --teal:#0E6E7E; --teal-deep:#0A4F5B; --teal-wash:#DCEAEC;
+  --amber:#9C4A18; --amber-wash:#F6E8DE;
+  --green:#2D7D5A; --green-wash:#DCEBE3;
+  --red:#B04A3F; --red-wash:#F7E3E0;
+  --violet:#5B4B8A; --violet-wash:#E4E0EF;
+  --term:#131C25;
+  --measure:70ch;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:17px;line-height:1.65;
+  -webkit-font-smoothing:antialiased}
+.shell{max-width:1180px;margin:0 auto;padding:0 28px}
+
+.serieshead{display:flex;align-items:center;gap:14px;padding:26px 0 0}
+.serieshead .dot{width:7px;height:7px;background:var(--teal);border-radius:50%}
+.serieshead span{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;color:var(--ink-faint)}
+a.serieshead{text-decoration:none}
+a.serieshead:hover span{color:var(--teal)}
+
+.mast{border-bottom:1px solid var(--rule);padding:48px 0 44px}
+.mast .kicker{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.06em;color:var(--teal);margin:0 0 18px}
+.mast h1{font-family:'IBM Plex Serif',Georgia,serif;font-weight:600;
+  font-size:clamp(34px,5.4vw,58px);line-height:1.06;letter-spacing:-.02em;margin:0 0 20px;max-width:17ch}
+.mast .standfirst{font-family:'IBM Plex Serif',Georgia,serif;font-size:19px;line-height:1.62;
+  color:var(--ink-soft);max-width:58ch;margin:0}
+.mast .standfirst em{color:var(--ink);font-style:italic}
+
+.contents{border:1px solid var(--rule);background:var(--card);padding:26px 30px 30px;margin:38px 0 60px;max-width:540px}
+.contents h2{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.06em;color:var(--ink-faint);margin:0 0 14px;font-weight:500}
+.contents ol{margin:0;padding:0;list-style:none;counter-reset:toc}
+.contents li{counter-increment:toc;border-top:1px solid var(--rule-soft)}
+.contents li:first-child{border-top:none}
+.contents a{display:flex;gap:14px;align-items:baseline;padding:9px 0;text-decoration:none;color:var(--ink)}
+.contents a:hover{color:var(--teal)}
+.contents a::before{content:counter(toc,decimal-leading-zero);font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--teal)}
+
+section{padding:8px 0 60px}
+.part-rule{display:flex;align-items:center;gap:16px;margin:56px 0 26px}
+.part-rule span{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.06em;color:var(--teal);white-space:nowrap}
+.part-rule::after{content:"";height:1px;background:var(--rule);flex:1}
+
+h2.head{font-family:'IBM Plex Serif',Georgia,serif;font-size:clamp(26px,3.4vw,36px);
+  font-weight:600;letter-spacing:-.015em;line-height:1.15;margin:0 0 22px;max-width:24ch}
+h3.sub{font-size:20px;font-weight:600;margin:44px 0 14px;letter-spacing:-.005em}
+h4.minor{font-size:16.5px;font-weight:600;margin:30px 0 10px}
+p{margin:0 0 18px;max-width:var(--measure)}
+ul,ol{max-width:var(--measure);padding-left:22px}
+li{margin-bottom:8px}
+a{color:var(--teal)}
+code{font-family:'IBM Plex Mono',monospace;font-size:.875em;background:#E2E7EC;padding:1px 5px;border-radius:2px}
+
+.dia{margin:34px 0;background:var(--card);border:1px solid var(--rule);border-radius:3px;padding:26px 24px 20px}
+.dia svg{display:block;width:100%;height:auto}
+.dia .cap{margin:18px 0 0;padding-top:14px;border-top:1px solid var(--rule-soft);
+  font-size:14px;line-height:1.55;color:var(--ink-soft);max-width:none}
+.dia .cap b{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.05em;color:var(--teal);font-weight:500;display:block;margin-bottom:5px}
+
+.tbl{margin:26px 0;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{text-align:left;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.05em;
+  color:var(--ink-faint);font-weight:500;padding:0 16px 9px 0;border-bottom:1px solid var(--rule);white-space:nowrap}
+td{padding:11px 16px 11px 0;border-bottom:1px solid var(--rule-soft);vertical-align:top}
+td code{font-size:12.5px;background:transparent;padding:0;color:var(--teal-deep)}
+tr:last-child td{border-bottom:none}
+
+blockquote{margin:30px 0;padding:2px 0 2px 24px;border-left:2px solid var(--rule);max-width:64ch;
+  font-family:'IBM Plex Serif',Georgia,serif;font-size:18px;line-height:1.6;color:var(--ink-soft);font-style:italic}
+blockquote p{margin:0;max-width:none}
+
+.sec{background:var(--amber-wash);border-left:2px solid var(--amber);padding:20px 24px;margin:30px 0;max-width:var(--measure)}
+.sec .tag{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--amber);margin-bottom:8px}
+.sec p{margin-bottom:12px;font-size:15.5px}
+.sec p:last-child{margin-bottom:0}
+.sec code{background:#EFDECF}
+
+.key{background:var(--teal-wash);border-left:2px solid var(--teal);padding:20px 24px;margin:30px 0;max-width:var(--measure)}
+.key .tag{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--teal-deep);margin-bottom:8px}
+.key p{margin:0;font-size:15.5px}
+.key code{background:#CADFE2}
+
+footer{border-top:1px solid var(--rule);padding:40px 0 80px;margin-top:40px;font-size:14.5px;color:var(--ink-faint)}
+footer a{text-decoration:none}
+.nextprev{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:26px}
+.nextprev a{display:block;border:1px solid var(--rule);background:var(--card);padding:16px 20px;
+  text-decoration:none;color:var(--ink);flex:1;min-width:240px}
+.nextprev a:hover{border-color:var(--teal)}
+.nextprev .lbl{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.05em;color:var(--teal);display:block;margin-bottom:5px}
+.nextprev .ttl{font-family:'IBM Plex Serif',Georgia,serif;font-size:16.5px;font-weight:600}
+
+@media (max-width:820px){
+  body{font-size:16px}
+  .shell{padding:0 18px}
+  .dia{padding:18px 14px 14px}
+}
+
+</style>
+</head>
+<body>
+<div class="shell">
+
+<a class="serieshead" href="./"><span class="dot"></span><span>BACKEND FROM FIRST PRINCIPLES · POST 01</span></a>
+
+<header class="mast">
+  <p class="kicker">Why this blog exists</p>
+  <h1>I got asked to design a library system and fell apart</h1>
+  <p class="standfirst">I knew HTTP. I'd built things in Flask. I'd studied for security certs. <em>And none of it survived contact with a whiteboard.</em> This is what I think went wrong, and what I'm doing about it.</p>
+</header>
+
+<section>
+
+<h3 class="sub">The interview</h3>
+
+<p>A few months ago I interviewed for a cloud security engineering role. It went the way these interviews usually go: a LeetCode question to warm up, then a walk through my resume, then behavioural. And then the part that actually mattered.</p>
+
+<p>The interviewer asked me to design a simple library system. Regular users check books in and out. Admins have elevated privileges. Design the frontend, design the backend, and while you're at it, model the threats.</p>
+
+<p>I was cooked.</p>
+
+<p>Not because I didn't know the pieces. I'd taken the classes. I knew what HTTP was, I'd built things in Flask, I'd poked at React, I'd studied for security certs. But every one of those things lived in its own box in my head. School had handed me one assignment on routing, another on auth, another on the frontend, each scoped so tightly that I never had to see how they fit together. And when I was asked to build the whole system at once, I realised I'd never actually practiced that.</p>
+
+<p>The threat modeling was worse. I basically recited a greatest-hits list of OWASP vulnerabilities (SQLi, XSS, CSRF, whatever I could remember from studying for certs) without any real sense of where <em>in this specific system</em> those risks actually lived, or why. It wasn't threat modeling. It was pattern matching against a flashcard deck, and it fell apart the moment I had to reason about an actual architecture instead of a quiz question.</p>
+
+<p>I'm a fourth-year CS student. This should not have been the first time I hit this wall. But it was, and it's a wall I think a lot of us hit, because of how backend and system design tend to get taught. Or don't get taught.</p>
+
+<h3 class="sub">The actual problem</h3>
+
+<p>Most curricula, and most tutorials if I'm honest, teach backend engineering as a stack of disconnected topics. A chapter on HTTP. A chapter on databases. A chapter on Flask vs Django. A chapter on REST vs GraphQL. Each one is technically correct and completely insufficient, because none of them show you how the parts talk to each other, or why the system is shaped the way it is.</p>
+
+<div class="dia">
+<svg viewBox="0 0 760 330" role="img" aria-label="Disconnected topics versus a connected system">
+<defs>
+<marker id="m1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+<path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+</defs>
+
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="12" fill="#B04A3F">HOW IT GETS TAUGHT</text>
+
+<rect x="16" y="36" width="104" height="46" rx="4" fill="#F7E3E0" stroke="#B04A3F" stroke-width="1.3"/>
+<text x="68" y="58" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">HTTP</text>
+<text x="68" y="73" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#B04A3F">week 3</text>
+
+<rect x="132" y="36" width="104" height="46" rx="4" fill="#F7E3E0" stroke="#B04A3F" stroke-width="1.3"/>
+<text x="184" y="58" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">routing</text>
+<text x="184" y="73" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#B04A3F">assignment 2</text>
+
+<rect x="16" y="96" width="104" height="46" rx="4" fill="#F7E3E0" stroke="#B04A3F" stroke-width="1.3"/>
+<text x="68" y="118" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">databases</text>
+<text x="68" y="133" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#B04A3F">different course</text>
+
+<rect x="132" y="96" width="104" height="46" rx="4" fill="#F7E3E0" stroke="#B04A3F" stroke-width="1.3"/>
+<text x="184" y="118" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">auth</text>
+<text x="184" y="133" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#B04A3F">one lecture</text>
+
+<rect x="16" y="156" width="104" height="46" rx="4" fill="#F7E3E0" stroke="#B04A3F" stroke-width="1.3"/>
+<text x="68" y="178" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">frontend</text>
+<text x="68" y="193" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#B04A3F">side project</text>
+
+<rect x="132" y="156" width="104" height="46" rx="4" fill="#F7E3E0" stroke="#B04A3F" stroke-width="1.3"/>
+<text x="184" y="178" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">OWASP list</text>
+<text x="184" y="193" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#B04A3F">cert studying</text>
+
+<text x="16" y="232" font-family="IBM Plex Sans" font-size="12.5" fill="#B04A3F">Each box correct on its own.</text>
+<text x="16" y="250" font-family="IBM Plex Sans" font-size="12.5" fill="#B04A3F">No edges between them.</text>
+<text x="16" y="276" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#B04A3F">Ask for the whole system and</text>
+<text x="16" y="294" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#B04A3F">there's nothing to assemble.</text>
+
+<line x1="272" y1="20" x2="272" y2="310" stroke="#DDE3E9"/>
+
+<text x="300" y="20" font-family="IBM Plex Mono, monospace" font-size="12" fill="#2D7D5A">WHAT IT ACTUALLY IS</text>
+
+<rect x="300" y="36" width="130" height="40" rx="4" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.3"/>
+<text x="365" y="60" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">browser</text>
+
+<line x1="365" y1="76" x2="365" y2="98" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#m1)"/>
+<text x="378" y="92" font-family="IBM Plex Mono, monospace" font-size="10" fill="#0E6E7E">HTTP</text>
+
+<rect x="300" y="100" width="130" height="40" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.3"/>
+<text x="365" y="124" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">routing</text>
+
+<line x1="365" y1="140" x2="365" y2="162" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#m1)"/>
+
+<rect x="300" y="164" width="130" height="40" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.3"/>
+<text x="365" y="188" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">auth</text>
+
+<line x1="365" y1="204" x2="365" y2="226" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#m1)"/>
+
+<rect x="300" y="228" width="130" height="40" rx="4" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.3"/>
+<text x="365" y="252" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">database</text>
+
+<!-- trust boundary -->
+<line x1="284" y1="88" x2="620" y2="88" stroke="#9C4A18" stroke-width="1.6" stroke-dasharray="6 4"/>
+<text x="446" y="82" font-family="IBM Plex Sans" font-size="11" fill="#9C4A18">trust boundary: everything above is untrusted</text>
+
+<!-- annotations to the right -->
+<line x1="432" y1="120" x2="486" y2="120" stroke="#8695A3" stroke-width="1.1" stroke-dasharray="3 3"/>
+<text x="492" y="116" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">which URL maps to</text>
+<text x="492" y="131" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">which handler, and why</text>
+
+<line x1="432" y1="184" x2="486" y2="184" stroke="#8695A3" stroke-width="1.1" stroke-dasharray="3 3"/>
+<text x="492" y="174" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">who are you, and</text>
+<text x="492" y="189" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">separately, what are</text>
+<text x="492" y="204" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">you allowed to do</text>
+
+<line x1="432" y1="248" x2="486" y2="248" stroke="#8695A3" stroke-width="1.1" stroke-dasharray="3 3"/>
+<text x="492" y="244" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">where the data lives and</text>
+<text x="492" y="259" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">who may touch it</text>
+
+<text x="300" y="298" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#2D7D5A">The edges are the subject. Not the boxes.</text>
+</svg>
+<p class="cap"><b>The gap, drawn</b>On the left, what I actually had in my head going into that interview. On the right, what the question was asking for. The vulnerabilities I could recite live on the <em>edges</em>: at the trust boundary, in the gap between authentication and authorization, at the point where input reaches the database. I had memorised the boxes.</p>
+</div>
+
+<p>I spent a solid three or four years bouncing between "should I learn Django or Flask," "should I learn React," "should I learn this framework or that one," and none of it stuck, because I was chasing tools instead of understanding the underlying shape of the problem those tools exist to solve.</p>
+
+<blockquote><p>Frameworks change. The concepts underneath them do not: statelessness, request and response cycles, authentication versus authorization, trust boundaries, where data lives and who's allowed to touch it.</p></blockquote>
+
+<p>That's the gap I want to close for myself, and hopefully for anyone else reading this.</p>
+
+<h3 class="sub">Why the security part failed specifically</h3>
+
+<p>It's worth separating the two failures, because they're not the same failure.</p>
+
+<p>Not being able to design the system was a knowledge-assembly problem. I had the parts and no practice putting them together.</p>
+
+<p>Not being able to threat model was something else. Threat modeling isn't a list you recall. It's a thing you <em>do</em> to a specific architecture. You can't ask "where could this break" about a system you haven't drawn. The vulnerability names I'd memorised were answers to a question I hadn't earned the right to ask yet.</p>
+
+<div class="key">
+<p class="tag">The thing I actually got wrong</p>
+<p>I treated security as a category of facts. It's a category of reasoning about a particular system. Which means it's downstream of understanding the architecture, and if the architecture is fuzzy, no amount of OWASP recall will save you.</p>
+</div>
+
+<h3 class="sub">What this blog is</h3>
+
+<p>This is my notebook, made public. I'm working through backend and system design from first principles. Not "here's how to use tool X," but "here's what problem this category of tool exists to solve, and here's how the pieces of a real system connect to each other."</p>
+
+<p>Threat modeling is baked in from the start, not bolted on at the end as an afterthought, because security only makes sense once you actually understand what you're protecting and why. Every post that describes a component will also say where it can break and what an attacker would try.</p>
+
+<p>Frameworks come and go. The reasoning underneath them is forever. That's what I'm trying to build for myself, and for anyone else who learns the way I do: not chapter by chapter, but by seeing the whole map first.</p>
+
+<p>If you're a student who's felt this same disconnect, comfortable with the individual pieces but lost the moment someone asks you to put the whole system together, this is for you too.</p>
+
+</section>
+
+<footer>
+<div class="nextprev">
+<a href="./02-read-me-first.html"><span class="lbl">NEXT →</span><span class="ttl">Read me first: the whole map</span></a>
+</div>
+<p>Backend From First Principles · a notebook, made public.</p>
+</footer>
+
+</div>
+</body>
+</html>

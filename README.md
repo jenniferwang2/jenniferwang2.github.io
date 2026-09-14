@@ -31,6 +31,8 @@ the nav anchors to: hero, `#overview`, `#experience`, `#leadership`,
 | `_data/leadership.yml` | Leadership timeline |
 | `_projects/*.md` | One file per project card; each also gets its own page |
 | `writing.html` | `/writing/` index over `_writeups/` and `_posts/` |
+| `blog/index.html` | `/blog/` — one card per series |
+| `blog/<series>/` | A series: `index.html` (the series page) plus its posts |
 | `resume.html` | `/resume/` — the PDF embedded in the site, plus download |
 | `assets/css/main.css` | All the styling, hand-written, sectioned |
 | `_includes/scripts.html` | The only JavaScript. Progressive enhancement only |
@@ -60,6 +62,40 @@ scope: "Retired machine. All output from my own lab session."
 
 **A note or research post** — new file in `_posts/` named
 `YYYY-MM-DD-title.md`. Front matter needs `title`, `date`, `summary`.
+
+**A blog post** — the blog is organised into series. Posts are complete,
+self-styled HTML documents with **no front matter**, so Jekyll copies them
+byte-for-byte (no Liquid runs over them). Drop the file into its series
+folder, e.g. `blog/backend-from-first-principles/04-something.html`, then add it to the
+`posts:` list in that folder's `index.html`, in reading order:
+
+```yaml
+posts:
+  - file: 04-something.html
+    title: "Post title"
+    summary: "One line for the series page."
+    kind: "Walkthrough"
+```
+
+Posts link to each other with relative `./NN-name.html` hrefs, and their
+series header links to `./` (the series page). Images go in the series'
+`images/` folder as real files, named `NN-MM-slug.ext` — not as base64
+`data:` URIs, which bloat the HTML and can't be cached or lazy-loaded.
+
+**A blog series** — new folder `blog/<name>/` with an `index.html`:
+
+```yaml
+---
+layout: series
+title: "Series name"
+permalink: /blog/<name>/
+order: 2                 # position on /blog/
+eyebrow: Blog series
+summary: "Shown on the card and as the series page lede."
+tags: ["Tag", "Tag"]
+posts: []
+---
+```
 
 **A project** — new file in `_projects/`:
 

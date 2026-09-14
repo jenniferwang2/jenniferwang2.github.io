@@ -26,6 +26,8 @@ nav:
     url: "/#projects"
   - label: "Writing"
     url: "/writing/"
+  - label: "Blog"
+    url: "/blog/"
   - label: "Contact"
     url: "/#contact"
 

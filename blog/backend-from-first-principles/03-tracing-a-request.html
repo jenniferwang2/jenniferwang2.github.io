@@ -1,0 +1,1474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tracing a Request — Backend From First Principles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF1F4; --card:#FFF;
+  --ink:#16202B; --ink-soft:#53616F; --ink-faint:#8695A3;
+  --rule:#CBD4DC; --rule-soft:#DDE3E9;
+  --teal:#0E6E7E; --teal-deep:#0A4F5B; --teal-wash:#DCEAEC;
+  --amber:#9C4A18; --amber-wash:#F6E8DE;
+  --green:#2D7D5A; --green-wash:#DCEBE3;
+  --red:#B04A3F; --red-wash:#F7E3E0;
+  --violet:#5B4B8A; --violet-wash:#E4E0EF;
+  --term:#131C25;
+  --measure:70ch;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:17px;line-height:1.65;
+  -webkit-font-smoothing:antialiased}
+.shell{max-width:1180px;margin:0 auto;padding:0 28px}
+
+.serieshead{display:flex;align-items:center;gap:14px;padding:26px 0 0;text-decoration:none}
+.serieshead .dot{width:7px;height:7px;background:var(--teal);border-radius:50%}
+.serieshead span{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;color:var(--ink-faint)}
+.serieshead:hover span{color:var(--teal)}
+
+.mast{border-bottom:1px solid var(--rule);padding:48px 0 44px}
+.mast .kicker{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.06em;color:var(--teal);margin:0 0 18px}
+.mast h1{font-family:'IBM Plex Serif',Georgia,serif;font-weight:600;
+  font-size:clamp(34px,5.4vw,58px);line-height:1.06;letter-spacing:-.02em;margin:0 0 20px;max-width:17ch}
+.mast .standfirst{font-family:'IBM Plex Serif',Georgia,serif;font-size:19px;line-height:1.62;
+  color:var(--ink-soft);max-width:58ch;margin:0}
+.mast .standfirst em{color:var(--ink);font-style:italic}
+
+.contents{border:1px solid var(--rule);background:var(--card);padding:26px 30px 30px;margin:38px 0 60px;max-width:540px}
+.contents h2{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.06em;color:var(--ink-faint);margin:0 0 14px;font-weight:500}
+.contents ol{margin:0;padding:0;list-style:none;counter-reset:toc}
+.contents li{counter-increment:toc;border-top:1px solid var(--rule-soft)}
+.contents li:first-child{border-top:none}
+.contents a{display:flex;gap:14px;align-items:baseline;padding:9px 0;text-decoration:none;color:var(--ink)}
+.contents a:hover{color:var(--teal)}
+.contents a::before{content:counter(toc,decimal-leading-zero);font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--teal)}
+
+section{padding:8px 0 60px}
+.part-rule{display:flex;align-items:center;gap:16px;margin:56px 0 26px}
+.part-rule span{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.06em;color:var(--teal);white-space:nowrap}
+.part-rule::after{content:"";height:1px;background:var(--rule);flex:1}
+
+h2.head{font-family:'IBM Plex Serif',Georgia,serif;font-size:clamp(26px,3.4vw,36px);
+  font-weight:600;letter-spacing:-.015em;line-height:1.15;margin:0 0 22px;max-width:24ch}
+h3.sub{font-size:20px;font-weight:600;margin:44px 0 14px;letter-spacing:-.005em}
+h4.minor{font-size:16.5px;font-weight:600;margin:30px 0 10px}
+p{margin:0 0 18px;max-width:var(--measure)}
+ul,ol{max-width:var(--measure);padding-left:22px}
+li{margin-bottom:8px}
+a{color:var(--teal)}
+code{font-family:'IBM Plex Mono',monospace;font-size:.875em;background:#E2E7EC;padding:1px 5px;border-radius:2px}
+
+.hop{display:flex;gap:18px;align-items:flex-start;margin:56px 0 20px}
+.hop-num{flex:0 0 auto;width:44px;height:44px;border:1px solid var(--teal);color:var(--teal);
+  display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:16px}
+.hop-txt h3{font-family:'IBM Plex Serif',Georgia,serif;font-size:27px;font-weight:600;margin:0 0 4px;line-height:1.2}
+.hop-txt p{margin:0;color:var(--ink-soft);font-size:15px;font-family:'IBM Plex Mono',monospace}
+
+/* figures */
+figure{margin:34px 0;background:var(--card);border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+figure img{display:block;width:100%;height:auto}
+figcaption{padding:16px 22px 18px;border-top:1px solid var(--rule-soft);font-size:14.5px;line-height:1.55;color:var(--ink-soft)}
+figcaption b{display:block;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.05em;color:var(--teal);font-weight:500;margin-bottom:6px}
+
+/* svg diagram frames */
+.dia{margin:34px 0;background:var(--card);border:1px solid var(--rule);border-radius:3px;padding:26px 24px 20px}
+.dia svg{display:block;width:100%;height:auto}
+.dia .cap{margin:18px 0 0;padding-top:14px;border-top:1px solid var(--rule-soft);
+  font-size:14px;line-height:1.55;color:var(--ink-soft);max-width:none}
+.dia .cap b{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.05em;color:var(--teal);font-weight:500;display:block;margin-bottom:5px}
+
+pre{background:var(--term);color:#D6DEE6;font-family:'IBM Plex Mono',monospace;font-size:12.5px;
+  line-height:1.55;padding:22px 24px;overflow-x:auto;margin:26px 0;border-radius:3px}
+pre b{color:#7FD4C1;font-weight:500}
+pre i{color:#7C8A97;font-style:normal}
+
+.tbl{margin:26px 0;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{text-align:left;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.05em;
+  color:var(--ink-faint);font-weight:500;padding:0 16px 9px 0;border-bottom:1px solid var(--rule);white-space:nowrap}
+td{padding:11px 16px 11px 0;border-bottom:1px solid var(--rule-soft);vertical-align:top}
+td code{font-size:12.5px;background:transparent;padding:0;color:var(--teal-deep)}
+tr:last-child td{border-bottom:none}
+
+blockquote{margin:30px 0;padding:2px 0 2px 24px;border-left:2px solid var(--rule);max-width:64ch;
+  font-family:'IBM Plex Serif',Georgia,serif;font-size:18px;line-height:1.6;color:var(--ink-soft);font-style:italic}
+blockquote p{margin:0;max-width:none}
+
+.sec{background:var(--amber-wash);border-left:2px solid var(--amber);padding:20px 24px;margin:30px 0;max-width:var(--measure)}
+.sec .tag{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--amber);margin-bottom:8px}
+.sec p{margin-bottom:12px;font-size:15.5px}
+.sec p:last-child{margin-bottom:0}
+.sec code{background:#EFDECF}
+
+.key{background:var(--teal-wash);border-left:2px solid var(--teal);padding:20px 24px;margin:30px 0;max-width:var(--measure)}
+.key .tag{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--teal-deep);margin-bottom:8px}
+.key p{margin:0;font-size:15.5px}
+.key code{background:#CADFE2}
+
+.annot{border-left:2px solid var(--teal);padding:4px 0 4px 20px;margin:26px 0;max-width:var(--measure)}
+.annot p:last-child{margin-bottom:0}
+.annot .lead{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.05em;color:var(--teal);margin-bottom:10px}
+
+footer{border-top:1px solid var(--rule);padding:40px 0 80px;margin-top:40px;font-size:14.5px;color:var(--ink-faint)}
+footer a{text-decoration:none}
+.nextprev{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:26px}
+.nextprev a{display:block;border:1px solid var(--rule);background:var(--card);padding:16px 20px;
+  text-decoration:none;color:var(--ink);flex:1;min-width:240px}
+.nextprev a:hover{border-color:var(--teal)}
+.nextprev .lbl{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.05em;color:var(--teal);display:block;margin-bottom:5px}
+.nextprev .ttl{font-family:'IBM Plex Serif',Georgia,serif;font-size:16.5px;font-weight:600}
+
+@media (max-width:820px){
+  body{font-size:16px}
+  .shell{padding:0 18px}
+  .dia{padding:18px 14px 14px}
+  pre{font-size:11px;padding:16px}
+  .hop{gap:14px}
+  .hop-num{width:38px;height:38px;font-size:14px}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<a class="serieshead" href="./"><span class="dot"></span><span>BACKEND FROM FIRST PRINCIPLES · POST 03</span></a>
+
+<header class="mast">
+  <p class="kicker">Backend from first principles · annotated walkthrough</p>
+  <h1>Tracing a request from a browser to a process</h1>
+  <p class="standfirst">What a backend is, how a request actually reaches one, why they exist, how the frontend differs, and the four walls that stop you doing it all client-side. <em>Every claim paired with the screenshot that proves it.</em></p>
+</header>
+
+<nav class="contents">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#what">What is a backend?</a></li>
+    <li><a href="#how">How backends work</a></li>
+    <li><a href="#why">Why do we need backends?</a></li>
+    <li><a href="#fe">How frontends work</a></li>
+    <li><a href="#walls">Why backend logic can't live in the frontend</a></li>
+  </ol>
+</nav>
+
+<!-- ══════════════ 1 ══════════════ -->
+<section id="what">
+<div class="part-rule"><span>One</span></div>
+<h2 class="head">What is a backend?</h2>
+
+<blockquote><p>Let's picture it. A backend in its traditional definition is a computer which is listening for HTTP or WebSocket or gRPC or any other kind of request through an open port — whether it is 80 or 443 — which is accessible over the internet, so that clients or other frontends can connect to it, send data to it, or receive data.</p></blockquote>
+
+<p>And the name is literal:</p>
+
+<blockquote><p>We call it a server because it provides, or it serves, some kind of content — whether it is static files like images or JavaScript files or HTML files, or it could be JSON. And it also accepts data if the client sends something.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 330" role="img" aria-label="A backend is a computer listening on open ports">
+<defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#0E6E7E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<!-- clients -->
+<text x="20" y="22" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#8695A3" letter-spacing="0.5">CLIENTS</text>
+<rect x="20" y="36" width="118" height="46" rx="4" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1"/>
+<text x="79" y="59" text-anchor="middle" font-family="IBM Plex Sans" font-size="13.5" fill="#16202B">browser</text>
+<text x="79" y="73" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#5B4B8A">frontend</text>
+
+<rect x="20" y="96" width="118" height="46" rx="4" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1"/>
+<text x="79" y="119" text-anchor="middle" font-family="IBM Plex Sans" font-size="13.5" fill="#16202B">mobile app</text>
+<text x="79" y="133" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#5B4B8A">native client</text>
+
+<rect x="20" y="156" width="118" height="46" rx="4" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1"/>
+<text x="79" y="179" text-anchor="middle" font-family="IBM Plex Sans" font-size="13.5" fill="#16202B">another server</text>
+<text x="79" y="193" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#5B4B8A">service to service</text>
+
+<!-- internet cloud -->
+<ellipse cx="248" cy="120" rx="62" ry="44" fill="#F4F6F8" stroke="#CBD4DC" stroke-width="1"/>
+<text x="248" y="125" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" fill="#53616F">internet</text>
+
+<line x1="138" y1="59" x2="192" y2="100" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#a1)"/>
+<line x1="138" y1="119" x2="184" y2="120" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#a1)"/>
+<line x1="138" y1="179" x2="192" y2="142" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#a1)"/>
+
+<!-- ports -->
+<line x1="310" y1="120" x2="386" y2="120" stroke="#0E6E7E" stroke-width="1.6" marker-end="url(#a1)"/>
+<rect x="330" y="72" width="42" height="26" rx="3" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1"/>
+<text x="351" y="90" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#2D7D5A">443</text>
+<rect x="330" y="142" width="42" height="26" rx="3" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1"/>
+<text x="351" y="160" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#2D7D5A">80</text>
+<text x="351" y="188" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#2D7D5A">open ports</text>
+
+<!-- the machine -->
+<rect x="396" y="36" width="230" height="228" rx="5" fill="#FFFFFF" stroke="#0E6E7E" stroke-width="1.6"/>
+<text x="411" y="58" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#0E6E7E" letter-spacing="0.5">THE SERVER</text>
+<text x="411" y="76" font-family="IBM Plex Sans" font-size="13" fill="#53616F">a computer that stays on</text>
+
+<rect x="414" y="92" width="194" height="58" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1"/>
+<text x="511" y="114" text-anchor="middle" font-family="IBM Plex Sans" font-size="13.5" fill="#16202B">a process, listening</text>
+<text x="511" y="133" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="#0A4F5B">bound to a port</text>
+
+<line x1="511" y1="150" x2="511" y2="172" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#a1)"/>
+
+<rect x="414" y="178" width="194" height="70" rx="4" fill="#F4F6F8" stroke="#CBD4DC" stroke-width="1"/>
+<text x="511" y="199" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" fill="#16202B">serves</text>
+<text x="511" y="216" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#53616F">HTML · JS · images · JSON</text>
+<text x="511" y="236" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" fill="#16202B">and accepts data back</text>
+
+<!-- callout -->
+<line x1="626" y1="120" x2="666" y2="120" stroke="#9C4A18" stroke-width="1.2" stroke-dasharray="3 3"/>
+<text x="672" y="110" font-family="IBM Plex Sans" font-size="12.5" fill="#9C4A18">not magic —</text>
+<text x="672" y="126" font-family="IBM Plex Sans" font-size="12.5" fill="#9C4A18">a rented</text>
+<text x="672" y="142" font-family="IBM Plex Sans" font-size="12.5" fill="#9C4A18">machine</text>
+</svg>
+<p class="cap"><b>The definition, drawn</b>Four literal claims: it is a computer, a process on it is bound to a port, that port is reachable from the internet, and it both serves content and accepts data. Everything later in this guide is machinery around those four facts.</p>
+</div>
+
+<div class="dia">
+<svg viewBox="0 0 760 190" role="img" aria-label="HTTP versus WebSocket versus gRPC">
+<defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<!-- HTTP -->
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="12" fill="#0E6E7E">HTTP</text>
+<rect x="16" y="34" width="72" height="30" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="52" y="54" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">client</text>
+<rect x="160" y="34" width="72" height="30" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="196" y="54" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">server</text>
+<line x1="90" y1="44" x2="156" y2="44" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#a2)"/>
+<line x1="158" y1="58" x2="92" y2="58" stroke="#8695A3" stroke-width="1.4" marker-end="url(#a2)"/>
+<text x="124" y="84" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">one shot</text>
+<text x="124" y="99" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">stateless</text>
+<text x="124" y="120" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#8695A3">the default for the web</text>
+
+<line x1="262" y1="20" x2="262" y2="130" stroke="#DDE3E9"/>
+
+<!-- WebSocket -->
+<text x="278" y="20" font-family="IBM Plex Mono, monospace" font-size="12" fill="#0E6E7E">WEBSOCKET</text>
+<rect x="278" y="34" width="72" height="30" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="314" y="54" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">client</text>
+<rect x="422" y="34" width="72" height="30" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="458" y="54" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">server</text>
+<line x1="352" y1="45" x2="418" y2="45" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#a2)"/>
+<line x1="420" y1="55" x2="354" y2="55" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#a2)"/>
+<text x="386" y="84" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">persistent</text>
+<text x="386" y="99" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">both sides push</text>
+<text x="386" y="120" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#8695A3">chat, live updates</text>
+
+<line x1="524" y1="20" x2="524" y2="130" stroke="#DDE3E9"/>
+
+<!-- gRPC -->
+<text x="540" y="20" font-family="IBM Plex Mono, monospace" font-size="12" fill="#0E6E7E">gRPC</text>
+<rect x="540" y="34" width="80" height="30" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="580" y="54" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">service A</text>
+<rect x="664" y="34" width="80" height="30" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="704" y="54" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">service B</text>
+<line x1="622" y1="45" x2="660" y2="45" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#a2)"/>
+<line x1="662" y1="55" x2="624" y2="55" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#a2)"/>
+<text x="642" y="84" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">binary, typed</text>
+<text x="642" y="99" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">fast</text>
+<text x="642" y="120" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#8695A3">mostly internal</text>
+
+<line x1="16" y1="150" x2="744" y2="150" stroke="#DDE3E9"/>
+<text x="16" y="172" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">All three arrive through an open port. The protocol changes the shape of the conversation, not the fact that something is listening.</text>
+</svg>
+<p class="cap"><b>The three protocols named in the definition</b>The video lists HTTP, WebSocket and gRPC together because from the server's point of view they're the same situation — a process bound to a port, waiting.</p>
+</div>
+
+<figure>
+<img src="images/03-01-the-opening-sketch.png" width="2048" height="1143" decoding="async" alt="The opening sketch">
+<figcaption><b>The opening sketch</b>The two numbers written beside the drawn machine — 80 and 443 — are the only doors the public internet knocks on in the entire setup that follows. The cloud on the right is the internet; the boxes on the left are clients.</figcaption>
+</figure>
+
+<h3 class="sub">Why those two numbers specifically</h3>
+
+<p>A machine has one IP address but runs many services. Ports multiplex: the IP gets you to the machine, the port gets you to the right process on it. Typing <code>https://</code> silently appends <code>:443</code>; <code>http://</code> appends <code>:80</code>.</p>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Port</th><th>Protocol</th><th>Role in the setup we're about to trace</th></tr></thead>
+<tbody>
+<tr><td><code>22</code></td><td>SSH</td><td>Logging into the machine to administer it</td></tr>
+<tr><td><code>80</code></td><td>HTTP</td><td>Plaintext — here it exists only to redirect to 443</td></tr>
+<tr><td><code>443</code></td><td>HTTPS</td><td>Encrypted. The real front door</td></tr>
+<tr><td><code>3000</code> <code>3001</code></td><td>app ports</td><td>Where the apps bind — <strong>never exposed publicly</strong></td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<!-- ══════════════ 2 ══════════════ -->
+<section id="how">
+<div class="part-rule"><span>Two</span></div>
+<h2 class="head">How backends work</h2>
+
+<blockquote><p>I want you to get a holistic view — to actually see the components physically, how they work behind the scenes. So let's go through this whole flow. I have a backend server which is deployed in AWS, so let's take that as an example.</p></blockquote>
+
+<p>Here is the entire path first, then we take it apart hop by hop.</p>
+
+<div class="dia">
+<svg viewBox="0 0 760 620" role="img" aria-label="The full path of a request from browser to app process">
+<defs>
+<marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#0E6E7E" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="a3b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#5B4B8A" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></marker>
+</defs>
+
+<!-- browser -->
+<rect x="240" y="14" width="200" height="46" rx="4" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.4"/>
+<text x="340" y="37" text-anchor="middle" font-family="IBM Plex Sans" font-size="14" font-weight="600" fill="#16202B">BROWSER</text>
+<text x="340" y="52" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#5B4B8A">https://backend-demo.sriniously.xyz/users</text>
+
+<line x1="340" y1="60" x2="340" y2="88" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#a3)"/>
+<text x="352" y="78" font-family="IBM Plex Sans" font-size="11.5" fill="#0E6E7E">what IP is that name?</text>
+
+<!-- DNS -->
+<rect x="240" y="90" width="200" height="46" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.4"/>
+<text x="340" y="112" text-anchor="middle" font-family="IBM Plex Sans" font-size="14" font-weight="600" fill="#16202B">DNS</text>
+<text x="340" y="128" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#0A4F5B">A record → 54.175.148.96</text>
+<circle cx="222" cy="113" r="11" fill="#0E6E7E"/><text x="222" y="117" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#fff">1</text>
+
+<line x1="340" y1="136" x2="340" y2="164" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#a3)"/>
+
+<!-- AWS container -->
+<rect x="60" y="166" width="640" height="384" rx="6" fill="#F8FAFB" stroke="#CBD4DC" stroke-width="1.4"/>
+<text x="76" y="188" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#8695A3" letter-spacing="0.5">AWS</text>
+
+<!-- firewall -->
+<rect x="150" y="200" width="380" height="62" rx="4" fill="#F7E3E0" stroke="#B04A3F" stroke-width="1.4"/>
+<text x="340" y="222" text-anchor="middle" font-family="IBM Plex Sans" font-size="14" font-weight="600" fill="#16202B">SECURITY GROUP</text>
+<text x="340" y="240" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#2D7D5A">22 ✓   80 ✓   443 ✓</text>
+<text x="340" y="255" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#B04A3F">everything else dropped</text>
+<circle cx="132" cy="231" r="11" fill="#0E6E7E"/><text x="132" y="235" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#fff">2</text>
+
+<!-- blocked arrow -->
+<line x1="560" y1="231" x2="620" y2="231" stroke="#B04A3F" stroke-width="1.4" stroke-dasharray="4 3"/>
+<text x="626" y="228" font-family="IBM Plex Sans" font-size="11" fill="#B04A3F">port 3001</text>
+<text x="626" y="242" font-family="IBM Plex Sans" font-size="11" fill="#B04A3F">never reaches</text>
+
+<line x1="340" y1="262" x2="340" y2="288" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#a3)"/>
+
+<!-- EC2 -->
+<rect x="100" y="290" width="500" height="244" rx="5" fill="#FFFFFF" stroke="#0E6E7E" stroke-width="1.4"/>
+<text x="116" y="311" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#0E6E7E" letter-spacing="0.5">EC2 INSTANCE</text>
+<text x="116" y="327" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#8695A3">public 54.175.148.96 · private 172.31.87.253</text>
+<circle cx="82" cy="312" r="11" fill="#0E6E7E"/><text x="82" y="316" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#fff">3</text>
+
+<!-- nginx -->
+<rect x="130" y="340" width="440" height="62" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.2"/>
+<text x="350" y="362" text-anchor="middle" font-family="IBM Plex Sans" font-size="14" font-weight="600" fill="#16202B">NGINX</text>
+<text x="350" y="380" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">terminates TLS · reads the Host header · picks a destination</text>
+<text x="350" y="395" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#0A4F5B">listening on :80 and :443</text>
+<circle cx="112" cy="371" r="11" fill="#0E6E7E"/><text x="112" y="375" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#fff">4</text>
+
+<line x1="350" y1="402" x2="350" y2="426" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#a3)"/>
+<text x="362" y="419" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#0E6E7E">over loopback — never leaves the box</text>
+
+<!-- node app -->
+<rect x="130" y="428" width="440" height="46" rx="4" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.2"/>
+<text x="350" y="449" text-anchor="middle" font-family="IBM Plex Sans" font-size="14" font-weight="600" fill="#16202B">NODE APP</text>
+<text x="350" y="465" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#2D7D5A">127.0.0.1:3001 · kept alive by PM2</text>
+<circle cx="112" cy="451" r="11" fill="#0E6E7E"/><text x="112" y="455" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#fff">5</text>
+
+<line x1="350" y1="474" x2="350" y2="494" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#a3)"/>
+
+<rect x="200" y="496" width="300" height="30" rx="4" fill="#F4F6F8" stroke="#CBD4DC" stroke-width="1.2"/>
+<text x="350" y="516" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">database</text>
+
+<!-- return path -->
+<path d="M700 400 L730 400 L730 40 L446 40" fill="none" stroke="#5B4B8A" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#a3b)"/>
+<text x="738" y="230" font-family="IBM Plex Sans" font-size="11.5" fill="#5B4B8A" transform="rotate(90 738 230)">JSON travels all the way back</text>
+</svg>
+<p class="cap"><b>Five hops, one request</b>The return path is dashed because it retraces the same route in reverse. Note the dashed red line on the right: port 3001 is not reachable from outside — the only way to the app is through Nginx.</p>
+</div>
+
+<figure>
+<img src="images/03-02-the-request-and-its-response-in-devtools.jpg" width="1500" height="602" loading="lazy" decoding="async" alt="The request and its response in DevTools">
+<figcaption><b>The request and its response in DevTools</b>Left: the raw JSON the backend returned. Right: the Headers pane for the request that produced it. <code>Remote Address: 54.175.148.96:443</code> means DNS has already resolved — the browser is telling you exactly which machine and port it reached.</figcaption>
+</figure>
+
+<!-- HOP 1 -->
+<div class="hop"><div class="hop-num">01</div><div class="hop-txt"><h3>DNS</h3><p>turning a name into an address</p></div></div>
+
+<blockquote><p>The first thing that you can see is the domain name. So the first thing that comes to mind is, we should take a look at our DNS server.</p></blockquote>
+
+<figure>
+<img src="images/03-03-the-registrar-s-dns-panel.jpg" width="1500" height="1256" loading="lazy" decoding="async" alt="The registrar's DNS panel">
+<figcaption><b>The registrar's DNS panel</b>Where you tell the internet which machine a name points to. Read rows two and three together — they are the crux of everything downstream.</figcaption>
+</figure>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Type</th><th>Host</th><th>Value</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>A</td><td><code>@</code></td><td><code>76.76.21.21</code></td><td><code>@</code> is the root domain itself</td></tr>
+<tr><td>A</td><td><code>backend-demo</code></td><td><code>54.175.148.96</code></td><td><strong>The record we follow.</strong> Points at the EC2 box</td></tr>
+<tr><td>A</td><td><code>frontend-demo</code></td><td><code>54.175.148.96</code></td><td><strong>The same IP.</strong> Two names, one machine</td></tr>
+<tr><td>CNAME</td><td><code>www</code></td><td><code>cname.vercel-dns.com</code></td><td>Alias to another <em>name</em>, not an address</td></tr>
+<tr><td>TXT</td><td><code>@</code></td><td><code>google-site-verification=…</code></td><td>Ownership proof. No routing role</td></tr>
+<tr><td>TXT</td><td><code>@</code></td><td><code>v=spf1 include:spf.efwd…</code></td><td>SPF — who may send mail as this domain</td></tr>
+</tbody>
+</table>
+</div>
+
+<blockquote><p>To oversimplify it, DNS has different types of records. You can use A records to point to a particular IP, and you can use CNAME records to point to a particular domain name or subdomain.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 200" role="img" aria-label="A record versus CNAME record">
+<defs><marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="12" fill="#0E6E7E">A RECORD</text>
+<rect x="16" y="36" width="150" height="34" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="91" y="58" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#16202B">backend-demo</text>
+<line x1="168" y1="53" x2="218" y2="53" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#a4)"/>
+<rect x="220" y="36" width="140" height="34" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="290" y="58" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#16202B">54.175.148.96</text>
+<text x="16" y="94" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">One lookup. Done. The answer is an address.</text>
+
+<line x1="392" y1="16" x2="392" y2="170" stroke="#DDE3E9"/>
+
+<text x="416" y="20" font-family="IBM Plex Mono, monospace" font-size="12" fill="#0E6E7E">CNAME RECORD</text>
+<rect x="416" y="36" width="80" height="34" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="456" y="58" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#16202B">www</text>
+<line x1="498" y1="53" x2="536" y2="53" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#a4)"/>
+<rect x="538" y="36" width="180" height="34" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="628" y="58" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#16202B">cname.vercel-dns.com</text>
+<line x1="628" y1="72" x2="628" y2="104" stroke="#9C4A18" stroke-width="1.5" marker-end="url(#a4)"/>
+<text x="642" y="92" font-family="IBM Plex Sans" font-size="11.5" fill="#9C4A18">now resolve that too</text>
+<rect x="558" y="106" width="140" height="34" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="628" y="128" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#16202B">some IP address</text>
+<text x="416" y="164" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">Two lookups. Useful when the target IP may change.</text>
+</svg>
+<p class="cap"><b>The difference that matters</b>An A record ends the chase. A CNAME hands you another name to chase, which is why it's used when you don't control or can't predict the final address.</p>
+</div>
+
+<div class="dia">
+<svg viewBox="0 0 760 260" role="img" aria-label="DNS resolution cache chain">
+<defs><marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#8695A3" letter-spacing="0.5">CACHES CHECKED FIRST</text>
+<rect x="16" y="32" width="112" height="34" rx="3" fill="#F4F6F8" stroke="#CBD4DC"/>
+<text x="72" y="53" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#53616F">browser</text>
+<line x1="130" y1="49" x2="150" y2="49" stroke="#8695A3" stroke-width="1.3" marker-end="url(#a5)"/>
+<rect x="152" y="32" width="112" height="34" rx="3" fill="#F4F6F8" stroke="#CBD4DC"/>
+<text x="208" y="53" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#53616F">OS</text>
+<line x1="266" y1="49" x2="286" y2="49" stroke="#8695A3" stroke-width="1.3" marker-end="url(#a5)"/>
+<rect x="288" y="32" width="112" height="34" rx="3" fill="#F4F6F8" stroke="#CBD4DC"/>
+<text x="344" y="53" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#53616F">router</text>
+<line x1="402" y1="49" x2="422" y2="49" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#a5)"/>
+
+<rect x="424" y="26" width="150" height="46" rx="3" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.4"/>
+<text x="499" y="46" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">ISP resolver</text>
+<text x="499" y="62" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#0A4F5B">does the real work</text>
+
+<line x1="499" y1="72" x2="499" y2="98" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#a5)"/>
+
+<text x="16" y="118" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#8695A3" letter-spacing="0.5">IF NOT CACHED, WALK THE HIERARCHY</text>
+
+<rect x="180" y="100" width="180" height="40" rx="3" fill="#FFFFFF" stroke="#0E6E7E"/>
+<text x="270" y="118" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">root nameserver</text>
+<text x="270" y="133" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#53616F">"who handles .xyz?"</text>
+<line x1="424" y1="120" x2="366" y2="120" stroke="#0E6E7E" stroke-width="1.3" marker-end="url(#a5)"/>
+
+<rect x="180" y="152" width="180" height="40" rx="3" fill="#FFFFFF" stroke="#0E6E7E"/>
+<text x="270" y="170" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">.xyz TLD server</text>
+<text x="270" y="185" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#53616F">"who handles sriniously.xyz?"</text>
+<line x1="424" y1="172" x2="366" y2="172" stroke="#0E6E7E" stroke-width="1.3" marker-end="url(#a5)"/>
+
+<rect x="180" y="204" width="180" height="40" rx="3" fill="#FFFFFF" stroke="#0E6E7E"/>
+<text x="270" y="222" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">authoritative NS</text>
+<text x="270" y="237" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#53616F">"A record for backend-demo?"</text>
+<line x1="424" y1="224" x2="366" y2="224" stroke="#0E6E7E" stroke-width="1.3" marker-end="url(#a5)"/>
+<line x1="499" y1="98" x2="499" y2="224" stroke="#0E6E7E" stroke-width="1.3"/>
+
+<line x1="499" y1="224" x2="560" y2="224" stroke="#2D7D5A" stroke-width="1.6" marker-end="url(#a5)"/>
+<rect x="562" y="206" width="140" height="36" rx="3" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.4"/>
+<text x="632" y="229" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">54.175.148.96</text>
+</svg>
+<p class="cap"><b>Where a lookup actually goes</b>Most lookups never leave your machine, because something already has the answer cached. <strong>TTL</strong> is what controls how long each of these layers may hold on to it.</p>
+</div>
+
+<div class="sec">
+<p class="tag">Security note · DNS is the first hop</p>
+<p>Because DNS resolves <em>before</em> TLS is negotiated, an attacker who controls the answer controls where your traffic goes. <strong>Hijacking</strong> changes the record at the registrar; <strong>cache poisoning</strong> feeds a resolver a forged answer. DNSSEC signs responses so tampering is detectable — and the panel in the screenshot shows it <strong>toggled off</strong>.</p>
+</div>
+
+<!-- HOP 2 -->
+<div class="hop"><div class="hop-num">02</div><div class="hop-txt"><h3>The EC2 instance</h3><p>where that IP address lives</p></div></div>
+
+<blockquote><p>This IP address is of an EC2 instance which is in AWS. If you see here, this is the public IP address that we just saw in our DNS config.</p></blockquote>
+
+<figure>
+<img src="images/03-04-ec2-instance-summary.jpg" width="1500" height="793" loading="lazy" decoding="async" alt="EC2 instance summary">
+<figcaption><b>EC2 instance summary</b>The identity card of one virtual machine. The field tying it to the previous hop is <strong>Public IPv4 address: 54.175.148.96</strong> — exactly what the A record pointed at.</figcaption>
+</figure>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Field</th><th>Value</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>Instance ID</td><td><code>i-0ceeff0026e2dac12</code></td><td>AWS's unique name for this VM</td></tr>
+<tr><td>Public IPv4</td><td><code>54.175.148.96</code></td><td><strong>What DNS points to.</strong> How the world reaches it</td></tr>
+<tr><td>Private IPv4</td><td><code>172.31.87.253</code></td><td>Its address inside AWS's network only</td></tr>
+<tr><td>Instance type</td><td><code>t2.micro</code></td><td>1 vCPU, 1 GB RAM — the free-tier size</td></tr>
+<tr><td>IMDSv2</td><td><code>Required</code></td><td>A real hardening setting — see below</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="dia">
+<svg viewBox="0 0 760 300" role="img" aria-label="Three tiers of network reachability">
+<defs><marker id="a6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<ellipse cx="120" cy="60" rx="72" ry="34" fill="#F4F6F8" stroke="#CBD4DC"/>
+<text x="120" y="65" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" fill="#53616F">the internet</text>
+
+<line x1="192" y1="60" x2="248" y2="60" stroke="#0E6E7E" stroke-width="1.6" marker-end="url(#a6)"/>
+<text x="220" y="50" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#0E6E7E">reaches</text>
+
+<!-- VPC -->
+<rect x="250" y="18" width="490" height="264" rx="6" fill="#F8FAFB" stroke="#CBD4DC" stroke-width="1.4"/>
+<text x="266" y="40" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#8695A3" letter-spacing="0.5">AWS VPC — your private network</text>
+
+<!-- public -->
+<rect x="276" y="52" width="440" height="52" rx="4" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.3"/>
+<text x="294" y="74" font-family="IBM Plex Mono, monospace" font-size="13" fill="#16202B">54.175.148.96</text>
+<text x="294" y="92" font-family="IBM Plex Sans" font-size="12" fill="#2D7D5A">public · routable from anywhere · what DNS points to</text>
+
+<!-- private -->
+<rect x="296" y="118" width="400" height="52" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.3"/>
+<text x="314" y="140" font-family="IBM Plex Mono, monospace" font-size="13" fill="#16202B">172.31.87.253</text>
+<text x="314" y="158" font-family="IBM Plex Sans" font-size="12" fill="#0A4F5B">private · reachable only from inside this VPC</text>
+
+<!-- loopback -->
+<rect x="316" y="184" width="360" height="52" rx="4" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.3"/>
+<text x="334" y="206" font-family="IBM Plex Mono, monospace" font-size="13" fill="#16202B">127.0.0.1</text>
+<text x="334" y="224" font-family="IBM Plex Sans" font-size="12" fill="#5B4B8A">loopback · reachable only by the machine itself</text>
+
+<line x1="690" y1="210" x2="726" y2="210" stroke="#9C4A18" stroke-width="1.2" stroke-dasharray="3 3"/>
+<text x="700" y="256" font-family="IBM Plex Sans" font-size="11.5" fill="#9C4A18" text-anchor="middle">Nginx uses</text>
+<text x="700" y="270" font-family="IBM Plex Sans" font-size="11.5" fill="#9C4A18" text-anchor="middle">this one</text>
+</svg>
+<p class="cap"><b>Three tiers of reachability</b>Each ring is narrower than the one outside it. The innermost — loopback — is the one Nginx uses to hand a request to the app, which is why the app never needs a publicly open port.</p>
+</div>
+
+<div class="sec">
+<p class="tag">Security note · IMDSv2</p>
+<p>EC2 instances can query <code>169.254.169.254</code> for their own metadata, including temporary IAM credentials. Under IMDSv1 a plain GET sufficed, making it a devastating <strong>SSRF</strong> target — trick a server into fetching that URL and you walk away with its cloud credentials. That was the mechanism in the 2019 Capital One breach. IMDSv2 requires a session token obtained by PUT first, which a naive SSRF can't produce.</p>
+</div>
+
+<!-- HOP 3 -->
+<div class="hop"><div class="hop-num">03</div><div class="hop-txt"><h3>The firewall</h3><p>before it reaches the computer</p></div></div>
+
+<blockquote><p>Before it reaches our server, or the particular computer, it goes through a firewall which is the AWS native firewall. The firewall has to allow some kind of request to go through.</p></blockquote>
+
+<figure>
+<img src="images/03-05-the-security-group-and-its-inbound-rules.jpg" width="1500" height="925" loading="lazy" decoding="async" alt="The security group and its inbound rules">
+<figcaption><b>The security group and its inbound rules</b>Three inbound rules, one outbound. Everything not listed is dropped before it reaches the operating system.</figcaption>
+</figure>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Type</th><th>Protocol</th><th>Port</th><th>Source</th></tr></thead>
+<tbody>
+<tr><td>SSH</td><td>TCP</td><td><code>22</code></td><td><code>0.0.0.0/0</code></td></tr>
+<tr><td>HTTPS</td><td>TCP</td><td><code>443</code></td><td><code>0.0.0.0/0</code></td></tr>
+<tr><td>HTTP</td><td>TCP</td><td><code>80</code></td><td><code>0.0.0.0/0</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><code>0.0.0.0/0</code> is CIDR notation for every IPv4 address in existence. Source: anywhere.</p>
+
+<blockquote><p>If we don't allow these two ports — like 443 for allowing HTTPS traffic or 80 to allow HTTP traffic — if you don't allow it, AWS will block it right there and our request won't be able to reach our server.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 300" role="img" aria-label="Firewall allowing and dropping packets by port">
+<defs><marker id="a7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#8695A3" letter-spacing="0.5">INCOMING PACKETS</text>
+
+<rect x="16" y="36" width="118" height="30" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="75" y="56" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#16202B">dst :443</text>
+<rect x="16" y="76" width="118" height="30" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="75" y="96" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#16202B">dst :80</text>
+<rect x="16" y="116" width="118" height="30" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="75" y="136" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#16202B">dst :22</text>
+<rect x="16" y="166" width="118" height="30" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="75" y="186" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#16202B">dst :3001</text>
+<rect x="16" y="206" width="118" height="30" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="75" y="226" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#16202B">dst :5432</text>
+<rect x="16" y="246" width="118" height="30" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="75" y="266" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#16202B">anything else</text>
+
+<line x1="136" y1="51" x2="262" y2="51" stroke="#2D7D5A" stroke-width="1.5" marker-end="url(#a7)"/>
+<line x1="136" y1="91" x2="262" y2="91" stroke="#2D7D5A" stroke-width="1.5" marker-end="url(#a7)"/>
+<line x1="136" y1="131" x2="262" y2="131" stroke="#2D7D5A" stroke-width="1.5" marker-end="url(#a7)"/>
+<line x1="136" y1="181" x2="262" y2="181" stroke="#B04A3F" stroke-width="1.5" marker-end="url(#a7)"/>
+<line x1="136" y1="221" x2="262" y2="221" stroke="#B04A3F" stroke-width="1.5" marker-end="url(#a7)"/>
+<line x1="136" y1="261" x2="262" y2="261" stroke="#B04A3F" stroke-width="1.5" marker-end="url(#a7)"/>
+
+<!-- the wall -->
+<rect x="264" y="24" width="120" height="258" rx="4" fill="#FFFFFF" stroke="#B04A3F" stroke-width="1.6"/>
+<text x="324" y="46" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#B04A3F" letter-spacing="0.5">SECURITY</text>
+<text x="324" y="60" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#B04A3F" letter-spacing="0.5">GROUP</text>
+<line x1="280" y1="72" x2="368" y2="72" stroke="#DDE3E9"/>
+<text x="324" y="92" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#2D7D5A">443 allow</text>
+<text x="324" y="110" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#2D7D5A">80 allow</text>
+<text x="324" y="128" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#2D7D5A">22 allow</text>
+<line x1="280" y1="142" x2="368" y2="142" stroke="#DDE3E9"/>
+<text x="324" y="164" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#B04A3F">default</text>
+<text x="324" y="180" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#B04A3F">DENY</text>
+<text x="324" y="206" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">you list what</text>
+<text x="324" y="220" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">is allowed,</text>
+<text x="324" y="234" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">not what</text>
+<text x="324" y="248" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">is blocked</text>
+
+<!-- outcomes -->
+<line x1="386" y1="51" x2="470" y2="51" stroke="#2D7D5A" stroke-width="1.5" marker-end="url(#a7)"/>
+<line x1="386" y1="91" x2="470" y2="91" stroke="#2D7D5A" stroke-width="1.5" marker-end="url(#a7)"/>
+<line x1="386" y1="131" x2="470" y2="131" stroke="#2D7D5A" stroke-width="1.5" marker-end="url(#a7)"/>
+
+<rect x="472" y="30" width="160" height="122" rx="4" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.4"/>
+<text x="552" y="80" text-anchor="middle" font-family="IBM Plex Sans" font-size="13.5" font-weight="600" fill="#16202B">reaches the</text>
+<text x="552" y="99" text-anchor="middle" font-family="IBM Plex Sans" font-size="13.5" font-weight="600" fill="#16202B">EC2 instance</text>
+
+<text x="400" y="186" font-family="IBM Plex Sans" font-size="12" fill="#B04A3F">✗ dropped</text>
+<text x="400" y="226" font-family="IBM Plex Sans" font-size="12" fill="#B04A3F">✗ dropped</text>
+<text x="400" y="266" font-family="IBM Plex Sans" font-size="12" fill="#B04A3F">✗ dropped</text>
+<text x="480" y="206" font-family="IBM Plex Sans" font-size="12" fill="#53616F">never touches</text>
+<text x="480" y="222" font-family="IBM Plex Sans" font-size="12" fill="#53616F">the operating system</text>
+
+<line x1="644" y1="91" x2="700" y2="91" stroke="#9C4A18" stroke-width="1.2" stroke-dasharray="3 3"/>
+<text x="648" y="124" font-family="IBM Plex Sans" font-size="11.5" fill="#9C4A18">3001 is where</text>
+<text x="648" y="139" font-family="IBM Plex Sans" font-size="11.5" fill="#9C4A18">the app lives —</text>
+<text x="648" y="154" font-family="IBM Plex Sans" font-size="11.5" fill="#9C4A18">and it is</text>
+<text x="648" y="169" font-family="IBM Plex Sans" font-size="11.5" fill="#9C4A18">deliberately</text>
+<text x="648" y="184" font-family="IBM Plex Sans" font-size="11.5" fill="#9C4A18">not on the list</text>
+</svg>
+<p class="cap"><b>Default deny, drawn</b>You enumerate what's permitted; everything else is dropped upstream of the machine. Note port 3001 in red — the app's own port is not reachable from outside, by design.</p>
+</div>
+
+<div class="key">
+<p class="tag">Why 3001 is deliberately absent</p>
+<p>The Node app listens on 3001, but nobody outside can reach it. The only path in is 80/443 → Nginx → loopback → 3001, and loopback traffic never leaves the machine. One narrow front door; everything else internal.</p>
+</div>
+
+<div class="sec">
+<p class="tag">Security notes · these specific rules</p>
+<p><strong>SSH open to <code>0.0.0.0/0</code></strong> is the weak point. Open port 22 to the world invites constant automated brute-force. Better: restrict the source range, use a bastion, or drop port 22 entirely in favour of AWS Systems Manager Session Manager.</p>
+<p><strong>Security groups are stateful.</strong> Allow a connection inbound and its response is automatically permitted back out. Network ACLs, the other AWS firewall layer, are stateless and need rules in both directions.</p>
+</div>
+
+<!-- HOP 4 -->
+<div class="hop"><div class="hop-num">04</div><div class="hop-txt"><h3>Nginx</h3><p>the reverse proxy</p></div></div>
+
+<blockquote><p>We are using something called a reverse proxy, which basically means it is a server which sits in front of other servers, so that we can manage different types of redirects or configs from a centralized space instead of changing the configs in every single server.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 290" role="img" aria-label="With and without a reverse proxy">
+<defs><marker id="a8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="12" fill="#B04A3F">WITHOUT A REVERSE PROXY</text>
+<ellipse cx="70" cy="120" rx="46" ry="28" fill="#F4F6F8" stroke="#CBD4DC"/>
+<text x="70" y="125" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#53616F">internet</text>
+
+<line x1="118" y1="102" x2="168" y2="72" stroke="#B04A3F" stroke-width="1.4" marker-end="url(#a8)"/>
+<line x1="118" y1="120" x2="168" y2="120" stroke="#B04A3F" stroke-width="1.4" marker-end="url(#a8)"/>
+<line x1="118" y1="138" x2="168" y2="168" stroke="#B04A3F" stroke-width="1.4" marker-end="url(#a8)"/>
+
+<rect x="170" y="52" width="150" height="40" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="245" y="70" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">app A</text>
+<text x="245" y="85" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#B04A3F">own cert, own :443?</text>
+<rect x="170" y="100" width="150" height="40" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="245" y="118" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">app B</text>
+<text x="245" y="133" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#B04A3F">own cert, own :443?</text>
+<rect x="170" y="148" width="150" height="40" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="245" y="166" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">app C</text>
+<text x="245" y="181" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#B04A3F">own cert, own :443?</text>
+
+<text x="16" y="216" font-family="IBM Plex Sans" font-size="12" fill="#B04A3F">Every app needs its own certificate, TLS config,</text>
+<text x="16" y="232" font-family="IBM Plex Sans" font-size="12" fill="#B04A3F">open port and redirect logic.</text>
+<text x="16" y="256" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#B04A3F">And two apps cannot both bind to port 443.</text>
+
+<line x1="376" y1="16" x2="376" y2="270" stroke="#DDE3E9"/>
+
+<text x="400" y="20" font-family="IBM Plex Mono, monospace" font-size="12" fill="#2D7D5A">WITH A REVERSE PROXY</text>
+<ellipse cx="450" cy="120" rx="46" ry="28" fill="#F4F6F8" stroke="#CBD4DC"/>
+<text x="450" y="125" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#53616F">internet</text>
+
+<line x1="498" y1="120" x2="534" y2="120" stroke="#0E6E7E" stroke-width="1.6" marker-end="url(#a8)"/>
+
+<rect x="536" y="82" width="88" height="76" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.5"/>
+<text x="580" y="108" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">NGINX</text>
+<text x="580" y="126" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#0A4F5B">:80 :443</text>
+<text x="580" y="144" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#0A4F5B">one cert</text>
+
+<line x1="626" y1="100" x2="662" y2="72" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#a8)"/>
+<line x1="626" y1="120" x2="662" y2="120" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#a8)"/>
+<line x1="626" y1="140" x2="662" y2="168" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#a8)"/>
+
+<rect x="664" y="54" width="80" height="34" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="704" y="75" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#16202B">:3000</text>
+<rect x="664" y="104" width="80" height="34" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="704" y="125" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#16202B">:3001</text>
+<rect x="664" y="154" width="80" height="34" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="704" y="175" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#16202B">:3002</text>
+
+<text x="400" y="216" font-family="IBM Plex Sans" font-size="12" fill="#2D7D5A">One place for certificates, HTTP→HTTPS redirects,</text>
+<text x="400" y="232" font-family="IBM Plex Sans" font-size="12" fill="#2D7D5A">rate limiting, compression, caching, access logs.</text>
+<text x="400" y="256" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#2D7D5A">Apps stay simple and internal.</text>
+</svg>
+<p class="cap"><b>What the proxy buys you</b>The blocking constraint on the left is physical: only one process can bind to port 443. Everything else is convenience, but that one is a hard limit.</p>
+</div>
+
+<figure>
+<img src="images/03-06-etc-nginx-conf-d-backend-conf.jpg" width="1500" height="1113" loading="lazy" decoding="async" alt="/etc/nginx/conf.d/backend.conf">
+<figcaption><b>/etc/nginx/conf.d/backend.conf</b>Two server blocks. The first handles HTTPS on 443 and forwards inward. The second catches HTTP on 80 and bounces it to HTTPS. The <code># managed by Certbot</code> comments mark lines written automatically by Let's Encrypt tooling.</figcaption>
+</figure>
+
+<div class="annot">
+<p class="lead">Line by line</p>
+<p><strong><code>server_name backend-demo.sriniously.xyz;</code></strong> — how one machine serves two subdomains. Nginx reads the <code>Host</code> header and picks the matching block. This is the answer to why DNS pointed both names at one IP.</p>
+<p><strong><code>proxy_pass http://127.0.0.1:3001;</code></strong> — forward to the app on this same machine, over loopback.</p>
+<p><strong><code>proxy_set_header X-Real-IP $remote_addr;</code></strong> — without this the app would think every request came from <code>127.0.0.1</code>, because that is literally who is calling it.</p>
+<p><strong><code>listen 443 ssl;</code> and the <code>ssl_certificate</code> lines</strong> — Nginx holds the certificate, decrypts inbound TLS, forwards plaintext internally. The app never touches a certificate.</p>
+<p><strong><code>return 301 https://$host$request_uri;</code></strong> — the second block's entire job. Anything on port 80 is redirected to HTTPS.</p>
+</div>
+
+<blockquote><p>The part that confused me initially was why Nginx forwards the request to <code>localhost:3001</code>. It simply means the backend is running on the same EC2 machine, and Nginx acts like a receptionist that forwards requests to the correct application.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 300" role="img" aria-label="Nginx routing two subdomains to two local ports">
+<defs><marker id="a9" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<rect x="140" y="16" width="220" height="42" rx="4" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="250" y="34" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#16202B">backend-demo.sriniously.xyz</text>
+<text x="250" y="50" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#5B4B8A">Host header</text>
+
+<rect x="400" y="16" width="220" height="42" rx="4" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="510" y="34" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#16202B">frontend-demo.sriniously.xyz</text>
+<text x="510" y="50" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#5B4B8A">Host header</text>
+
+<line x1="250" y1="58" x2="320" y2="92" stroke="#5B4B8A" stroke-width="1.5" marker-end="url(#a9)"/>
+<line x1="510" y1="58" x2="440" y2="92" stroke="#5B4B8A" stroke-width="1.5" marker-end="url(#a9)"/>
+
+<rect x="256" y="94" width="248" height="34" rx="3" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.3"/>
+<text x="380" y="116" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">54.175.148.96 : 443</text>
+<text x="520" y="116" font-family="IBM Plex Sans" font-size="11.5" fill="#8695A3">one IP, one port</text>
+
+<line x1="380" y1="128" x2="380" y2="150" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#a9)"/>
+
+<rect x="230" y="152" width="300" height="66" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.6"/>
+<text x="380" y="176" text-anchor="middle" font-family="IBM Plex Sans" font-size="14" font-weight="600" fill="#16202B">NGINX</text>
+<text x="380" y="196" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#0A4F5B">matches server_name against the Host header</text>
+<text x="380" y="211" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#0A4F5B">backend.conf   ·   frontend.conf</text>
+
+<line x1="300" y1="218" x2="230" y2="252" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#a9)"/>
+<line x1="460" y1="218" x2="530" y2="252" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#a9)"/>
+<text x="222" y="240" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="10" fill="#0E6E7E">proxy_pass</text>
+<text x="540" y="240" font-family="IBM Plex Mono, monospace" font-size="10" fill="#0E6E7E">proxy_pass</text>
+
+<rect x="110" y="254" width="190" height="40" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="205" y="272" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">127.0.0.1:3001</text>
+<text x="205" y="287" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#2D7D5A">Node / Express — JSON</text>
+
+<rect x="460" y="254" width="190" height="40" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="555" y="272" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">127.0.0.1:3000</text>
+<text x="555" y="287" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#2D7D5A">Next.js — HTML/JS/CSS</text>
+</svg>
+<p class="cap"><b>The receptionist</b>Both subdomains resolve to the same IP and arrive on the same port. The <code>Host</code> header is the only thing distinguishing them, and matching it against <code>server_name</code> is the entire routing decision.</p>
+</div>
+
+<div class="sec">
+<p class="tag">Security note · forwarded headers</p>
+<p><code>X-Forwarded-For</code> is trivially spoofable if an attacker can reach the app directly and the app trusts the header blindly. It is only safe to trust when traffic <em>must</em> pass through the proxy — which is exactly why port 3001 is closed at the firewall. The two controls depend on each other.</p>
+</div>
+
+<!-- HOP 5 -->
+<div class="hop"><div class="hop-num">05</div><div class="hop-txt"><h3>The process</h3><p>the final hop</p></div></div>
+
+<blockquote><p>If we take a look at our processes, let's do <code>pm2 list</code>. We can see here that we have two processes running — one for frontend and another for backend. And this is a Node server. So this is the final hop.</p></blockquote>
+
+<figure>
+<img src="images/03-07-pm2-list.jpg" width="1500" height="158" loading="lazy" decoding="async" alt="pm2 list">
+<figcaption><b>pm2 list</b>Two processes on one machine. <code>backend</code> (pid 4301) on :3001, <code>frontend</code> (pid 3853) on :3000. The <code>↺</code> column is the restart counter — zero means nothing has crashed. <code>status: online</code> is what you want.</figcaption>
+</figure>
+
+<p>Running <code>node server.js</code> in a terminal fails four ways: it dies when the SSH session closes, it doesn't return after a crash, it doesn't start after a reboot, and there's no log management. A process manager solves all four. Alternatives are systemd units, Docker with a restart policy, or Kubernetes.</p>
+
+<figure>
+<img src="images/03-08-curl-localhost-3001-users.jpg" width="1500" height="582" loading="lazy" decoding="async" alt="curl localhost:3001/users">
+<figcaption><b>curl localhost:3001/users</b>The proof step, and the most instructive command in the walkthrough. From inside the machine, curl hits the app directly — no DNS, no firewall, no Nginx — and gets byte-identical JSON to what the browser received.</figcaption>
+</figure>
+
+<div class="dia">
+<svg viewBox="0 0 760 230" role="img" aria-label="Two paths to the same app, one through infrastructure and one direct">
+<defs><marker id="a10" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#5B4B8A" letter-spacing="0.5">FROM THE INTERNET</text>
+<rect x="16" y="32" width="76" height="34" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="54" y="53" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#16202B">browser</text>
+<line x1="94" y1="49" x2="118" y2="49" stroke="#5B4B8A" stroke-width="1.4" marker-end="url(#a10)"/>
+<rect x="120" y="32" width="64" height="34" rx="3" fill="#F4F6F8" stroke="#CBD4DC"/>
+<text x="152" y="53" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">DNS</text>
+<line x1="186" y1="49" x2="210" y2="49" stroke="#5B4B8A" stroke-width="1.4" marker-end="url(#a10)"/>
+<rect x="212" y="32" width="72" height="34" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="248" y="53" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#16202B">firewall</text>
+<line x1="286" y1="49" x2="310" y2="49" stroke="#5B4B8A" stroke-width="1.4" marker-end="url(#a10)"/>
+<rect x="312" y="32" width="72" height="34" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="348" y="53" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#16202B">nginx</text>
+<line x1="386" y1="49" x2="452" y2="80" stroke="#5B4B8A" stroke-width="1.4" marker-end="url(#a10)"/>
+
+<text x="16" y="150" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#2D7D5A" letter-spacing="0.5">FROM THE MACHINE ITSELF</text>
+<rect x="16" y="162" width="260" height="34" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="146" y="183" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#16202B">curl localhost:3001/users</text>
+<line x1="278" y1="179" x2="452" y2="120" stroke="#2D7D5A" stroke-width="1.6" marker-end="url(#a10)"/>
+
+<rect x="456" y="76" width="180" height="48" rx="4" fill="#FFFFFF" stroke="#0E6E7E" stroke-width="1.6"/>
+<text x="546" y="97" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">the app</text>
+<text x="546" y="114" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#0A4F5B">:3001</text>
+
+<line x1="638" y1="100" x2="676" y2="100" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#a10)"/>
+<text x="682" y="96" font-family="IBM Plex Sans" font-size="11.5" fill="#0E6E7E">identical</text>
+<text x="682" y="111" font-family="IBM Plex Sans" font-size="11.5" fill="#0E6E7E">JSON</text>
+
+<rect x="456" y="140" width="290" height="60" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-dasharray="4 3"/>
+<text x="601" y="163" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" fill="#16202B">The app has no idea which route you took.</text>
+<text x="601" y="182" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" fill="#16202B">Everything above it is infrastructure.</text>
+</svg>
+<p class="cap"><b>The layering, made visible</b>Strip away DNS, the firewall and the proxy and the app still answers — you just have to be standing on the machine to ask it.</p>
+</div>
+
+<h3 class="sub">Reading the whole journey backwards from the evidence</h3>
+
+<blockquote><p>So if we were to summarize: our request starts here in the browser, it goes to our DNS server, then that goes to our AWS servers, and it goes through a firewall, and that reaches our AWS instance. And that request then reaches Nginx, and that finally forwards that request to our localhost 3001, our final server.</p></blockquote>
+
+<figure>
+<img src="images/03-09-diagram.png" width="1472" height="974" loading="lazy" decoding="async" alt="diagram">
+<figcaption><b>The same DevTools pane, annotated live</b>Each scribble maps part of the response back to a hop: <strong>DNS</strong> at the resolved address, <strong>AWS</strong> and <strong>Firewall</strong> at the infrastructure that permitted it, <strong>Nginx</strong> at the <code>Server</code> header, and <strong>localhost:3001</strong> at the destination. The whole journey is recoverable from what the browser hands you.</figcaption>
+</figure>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Header</th><th>Value</th><th>What it tells you</th></tr></thead>
+<tbody>
+<tr><td>Remote Address</td><td><code>54.175.148.96:443</code></td><td>DNS already resolved; this is the machine and port</td></tr>
+<tr><td>Status Code</td><td><code>200 OK</code></td><td>The request succeeded</td></tr>
+<tr><td>Content-Type</td><td><code>application/json; charset=utf-8</code></td><td>How the browser knows to parse it as JSON</td></tr>
+<tr><td>ETag</td><td><code>W/"ffe-…"</code></td><td>Cache validator — lets the browser ask "changed since?"</td></tr>
+<tr><td>Connection</td><td><code>keep-alive</code></td><td>Reuse the TCP connection for further requests</td></tr>
+<tr><td>Server</td><td><code>nginx/1.24.0 (Ubuntu)</code></td><td>The proxy announcing itself</td></tr>
+<tr><td>X-Powered-By</td><td><code>Express</code></td><td>The app framework announcing itself</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="sec">
+<p class="tag">Security note · information disclosure</p>
+<p>Those last two rows are findings. <code>Server: nginx/1.24.0 (Ubuntu)</code> and <code>X-Powered-By: Express</code> tell an attacker exactly what software and version you run, making CVE lookup trivial. Suppress both — <code>server_tokens off;</code> in Nginx, <code>app.disable('x-powered-by')</code> in Express. Also absent: no <code>Strict-Transport-Security</code>, no <code>Content-Security-Policy</code>, no <code>X-Frame-Options</code>.</p>
+</div>
+</section>
+
+<!-- ══════════════ 3 ══════════════ -->
+<section id="why">
+<div class="part-rule"><span>Three</span></div>
+<h2 class="head">Why do we need backends?</h2>
+
+<blockquote><p>Imagine you're scrolling through your Instagram feed and you come across your friend's post. As usual you like them, you click on the like button, and on the other side your friend gets a notification that you liked their post. So between you clicking on the like button and your friend getting the notification — what exactly happened?</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 420" role="img" aria-label="What happens between tapping like and a friend getting notified">
+<defs><marker id="a11" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<!-- lanes -->
+<rect x="16" y="16" width="150" height="34" rx="4" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="91" y="38" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">YOU</text>
+<rect x="300" y="16" width="170" height="34" rx="4" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="385" y="38" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">SERVER</text>
+<rect x="600" y="16" width="150" height="34" rx="4" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="675" y="38" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">YOUR FRIEND</text>
+
+<line x1="91" y1="54" x2="91" y2="400" stroke="#DDE3E9" stroke-width="1.5"/>
+<line x1="385" y1="54" x2="385" y2="400" stroke="#DDE3E9" stroke-width="1.5"/>
+<line x1="675" y1="54" x2="675" y2="400" stroke="#DDE3E9" stroke-width="1.5"/>
+
+<!-- 1 tap -->
+<circle cx="91" cy="80" r="11" fill="#5B4B8A"/><text x="91" y="84" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#fff">1</text>
+<line x1="104" y1="80" x2="372" y2="80" stroke="#5B4B8A" stroke-width="1.5" marker-end="url(#a11)"/>
+<text x="238" y="72" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#5B4B8A">POST /posts/123/like</text>
+
+<!-- 2 authn -->
+<rect x="404" y="102" width="230" height="38" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="418" y="119" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">authenticate</text>
+<text x="418" y="134" font-family="IBM Plex Sans" font-size="11" fill="#0A4F5B">who is this really? → user 88</text>
+<line x1="385" y1="121" x2="400" y2="121" stroke="#0E6E7E" stroke-width="1.3"/>
+<circle cx="385" cy="121" r="4" fill="#0E6E7E"/>
+
+<!-- 3 authz -->
+<rect x="404" y="152" width="230" height="38" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="418" y="169" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">authorize</text>
+<text x="418" y="184" font-family="IBM Plex Sans" font-size="11" fill="#0A4F5B">may 88 even see post 123?</text>
+<line x1="385" y1="171" x2="400" y2="171" stroke="#0E6E7E" stroke-width="1.3"/>
+<circle cx="385" cy="171" r="4" fill="#0E6E7E"/>
+
+<!-- 4 persist -->
+<rect x="404" y="202" width="230" height="52" rx="3" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.4"/>
+<text x="418" y="221" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">persist to the database</text>
+<text x="418" y="236" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#2D7D5A">INSERT like(88, 123)</text>
+<text x="418" y="250" font-family="IBM Plex Sans" font-size="11" fill="#2D7D5A">must survive you closing the app</text>
+<line x1="385" y1="228" x2="400" y2="228" stroke="#2D7D5A" stroke-width="1.3"/>
+<circle cx="385" cy="228" r="4" fill="#2D7D5A"/>
+
+<!-- 5 lookup -->
+<rect x="404" y="266" width="230" height="38" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="418" y="283" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">look up someone else's data</text>
+<text x="418" y="298" font-family="IBM Plex Sans" font-size="11" fill="#0A4F5B">who owns post 123? → user 42</text>
+<line x1="385" y1="285" x2="400" y2="285" stroke="#0E6E7E" stroke-width="1.3"/>
+<circle cx="385" cy="285" r="4" fill="#0E6E7E"/>
+
+<!-- 6/7 responses -->
+<circle cx="385" cy="334" r="11" fill="#0E6E7E"/><text x="385" y="338" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#fff">6</text>
+<line x1="372" y1="334" x2="104" y2="334" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#a11)"/>
+<text x="238" y="326" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#0E6E7E">200 OK</text>
+
+<circle cx="385" cy="374" r="11" fill="#9C4A18"/><text x="385" y="378" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#fff">7</text>
+<line x1="398" y1="374" x2="662" y2="374" stroke="#9C4A18" stroke-width="1.5" marker-end="url(#a11)"/>
+<text x="530" y="366" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#9C4A18">push notification to a device you can't reach</text>
+</svg>
+<p class="cap"><b>Seven steps, five of which only a server can do</b>Identify the caller, authorize the action, persist the fact, look up a <em>different user's</em> data, and trigger something on a device you have no access to. Your phone can do none of these on its own.</p>
+</div>
+
+<blockquote><p>If you try to condense down and strip it down — the responsibility and the use of backend to a single word — it will be this: <strong>data</strong>. The need to fetch data, the need to receive data, and the need to persist data somewhere.</p></blockquote>
+
+<h3 class="sub">Why it has to be centralised</h3>
+
+<blockquote><p>If you look at your app, it is designed, it is customized according to your needs and your profile and all the people you follow. Similarly that is the case for your friend — they only receive the notification that is intended for them. But a server has to have all kinds of information, all kinds of state. So it has to be centralized.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 300" role="img" aria-label="Clients see slices, the server holds the whole">
+<defs><marker id="a12" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#5B4B8A" letter-spacing="0.5">EACH CLIENT SEES A SLICE</text>
+
+<rect x="16" y="36" width="140" height="110" rx="4" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="86" y="58" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#16202B">your app</text>
+<text x="30" y="80" font-family="IBM Plex Sans" font-size="11.5" fill="#5B4B8A">your feed</text>
+<text x="30" y="98" font-family="IBM Plex Sans" font-size="11.5" fill="#5B4B8A">your likes</text>
+<text x="30" y="116" font-family="IBM Plex Sans" font-size="11.5" fill="#5B4B8A">your notifications</text>
+<text x="30" y="134" font-family="IBM Plex Sans" font-size="11.5" fill="#5B4B8A">who you follow</text>
+
+<rect x="16" y="160" width="140" height="110" rx="4" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="86" y="182" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#16202B">friend's app</text>
+<text x="30" y="204" font-family="IBM Plex Sans" font-size="11.5" fill="#5B4B8A">their feed</text>
+<text x="30" y="222" font-family="IBM Plex Sans" font-size="11.5" fill="#5B4B8A">their likes</text>
+<text x="30" y="240" font-family="IBM Plex Sans" font-size="11.5" fill="#5B4B8A">their notifications</text>
+<text x="30" y="258" font-family="IBM Plex Sans" font-size="11.5" fill="#5B4B8A">who they follow</text>
+
+<line x1="290" y1="100" x2="170" y2="90" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#a12)"/>
+<line x1="290" y1="200" x2="170" y2="212" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#a12)"/>
+<text x="228" y="146" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#0E6E7E">personalised</text>
+<text x="228" y="161" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#0E6E7E">slice each</text>
+
+<text x="300" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#0E6E7E" letter-spacing="0.5">THE SERVER HOLDS THE WHOLE</text>
+<rect x="300" y="36" width="290" height="234" rx="5" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.6"/>
+<text x="445" y="66" text-anchor="middle" font-family="IBM Plex Sans" font-size="14" font-weight="600" fill="#16202B">single source of truth</text>
+<line x1="324" y1="80" x2="566" y2="80" stroke="#B4CFD3"/>
+<text x="324" y="104" font-family="IBM Plex Sans" font-size="12.5" fill="#0A4F5B">all users</text>
+<text x="324" y="128" font-family="IBM Plex Sans" font-size="12.5" fill="#0A4F5B">all posts</text>
+<text x="324" y="152" font-family="IBM Plex Sans" font-size="12.5" fill="#0A4F5B">all likes</text>
+<text x="324" y="176" font-family="IBM Plex Sans" font-size="12.5" fill="#0A4F5B">all follows</text>
+<text x="324" y="200" font-family="IBM Plex Sans" font-size="12.5" fill="#0A4F5B">all notifications</text>
+<line x1="324" y1="218" x2="566" y2="218" stroke="#B4CFD3"/>
+<text x="324" y="242" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#16202B">and decides who sees what</text>
+<text x="324" y="259" font-family="IBM Plex Sans" font-size="11.5" fill="#0A4F5B">that decision is authorization</text>
+
+<line x1="592" y1="150" x2="628" y2="150" stroke="#9C4A18" stroke-width="1.2" stroke-dasharray="3 3"/>
+<text x="634" y="132" font-family="IBM Plex Sans" font-size="12" fill="#9C4A18">Move this</text>
+<text x="634" y="148" font-family="IBM Plex Sans" font-size="12" fill="#9C4A18">decision to the</text>
+<text x="634" y="164" font-family="IBM Plex Sans" font-size="12" fill="#9C4A18">client and you</text>
+<text x="634" y="180" font-family="IBM Plex Sans" font-size="12" fill="#9C4A18">have no</text>
+<text x="634" y="196" font-family="IBM Plex Sans" font-size="12" fill="#9C4A18">security at all</text>
+</svg>
+<p class="cap"><b>Slices versus the whole</b>Clients render personalised views; the server owns the truth and decides who sees which slice. That decision is authorization — and it's the reason "just do it on the frontend" collapses.</p>
+</div>
+
+<figure>
+<img src="images/03-10-diagram.png" width="1472" height="842" loading="lazy" decoding="async" alt="diagram">
+<figcaption><b>The whiteboard version</b>Clients around the edges, centralised state in the middle, arrows in both directions. Requests in, personalised responses out.</figcaption>
+</figure>
+</section>
+
+<!-- ══════════════ 4 ══════════════ -->
+<section id="fe">
+<div class="part-rule"><span>Four</span></div>
+<h2 class="head">How frontends work</h2>
+
+<blockquote><p>In order to understand why we can't use all those functionalities in the frontend, we have to see how frontends actually work behind the scenes. This is a Next.js application that I have deployed in the same AWS EC2 instance.</p></blockquote>
+
+<figure>
+<img src="images/03-11-the-next-js-page-and-its-network-waterfa.jpg" width="1500" height="547" loading="lazy" decoding="async" alt="The Next.js page and its network waterfall">
+<figcaption><b>The Next.js page and its network waterfall</b>Loading one page produces a cascade of requests, not one. The staircase pattern in the timeline is the whole point.</figcaption>
+</figure>
+
+<blockquote><p>The browser fetches the HTML file, and all the resources — for example all these JavaScript and all the images, the fonts and the CSS files — all of those different things are fetched in different requests after we have our primary HTML file.</p></blockquote>
+
+<figure>
+<img src="images/03-12-the-waterfall-expanded.jpg" width="1500" height="945" loading="lazy" decoding="async" alt="The waterfall, expanded">
+<figcaption><b>The waterfall, expanded</b>Document, two fonts, a stylesheet, five JavaScript chunks, several SVGs, favicon — each its own request with its own status, size and timing.</figcaption>
+</figure>
+
+<div class="dia">
+<svg viewBox="0 0 760 340" role="img" aria-label="The frontend loading waterfall from document to paint to hydrate">
+<defs><marker id="a13" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<line x1="16" y1="300" x2="744" y2="300" stroke="#CBD4DC" stroke-width="1.2" marker-end="url(#a13)"/>
+<text x="700" y="320" font-family="IBM Plex Sans" font-size="11.5" fill="#8695A3">time</text>
+
+<!-- stage 1 -->
+<text x="16" y="22" font-family="IBM Plex Mono, monospace" font-size="11" fill="#0E6E7E">1 · THE DOCUMENT</text>
+<rect x="16" y="32" width="120" height="26" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="76" y="50" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#16202B">GET /</text>
+<text x="146" y="50" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">the HTML arrives first — nothing else is known yet</text>
+
+<path d="M76 58 L76 76 L180 76" fill="none" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#a13)"/>
+<text x="90" y="92" font-family="IBM Plex Sans" font-size="11" fill="#0E6E7E">browser parses it, discovers link and script tags</text>
+
+<!-- stage 2 -->
+<text x="180" y="116" font-family="IBM Plex Mono, monospace" font-size="11" fill="#0E6E7E">2 · EVERYTHING IT REFERENCED</text>
+<rect x="180" y="126" width="150" height="22" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="255" y="141" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#16202B">app.css</text>
+<rect x="188" y="152" width="170" height="22" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="273" y="167" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#16202B">main-app.js</text>
+<rect x="196" y="178" width="140" height="22" rx="3" fill="#F4F6F8" stroke="#CBD4DC"/>
+<text x="266" y="193" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#53616F">fonts</text>
+<rect x="204" y="204" width="120" height="22" rx="3" fill="#F4F6F8" stroke="#CBD4DC"/>
+<text x="264" y="219" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#53616F">*.svg</text>
+
+<!-- paint -->
+<line x1="332" y1="137" x2="440" y2="137" stroke="#2D7D5A" stroke-width="1.5" marker-end="url(#a13)"/>
+<rect x="444" y="118" width="140" height="42" rx="4" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.6"/>
+<text x="514" y="137" text-anchor="middle" font-family="IBM Plex Sans" font-size="14" font-weight="600" fill="#16202B">PAINT</text>
+<text x="514" y="153" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#2D7D5A">it LOOKS right</text>
+
+<!-- hydrate -->
+<line x1="360" y1="163" x2="440" y2="212" stroke="#5B4B8A" stroke-width="1.5" marker-end="url(#a13)"/>
+<rect x="444" y="192" width="140" height="42" rx="4" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.6"/>
+<text x="514" y="211" text-anchor="middle" font-family="IBM Plex Sans" font-size="14" font-weight="600" fill="#16202B">HYDRATE</text>
+<text x="514" y="227" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#5B4B8A">it WORKS</text>
+
+<!-- the gap -->
+<line x1="600" y1="139" x2="600" y2="213" stroke="#9C4A18" stroke-width="1.4"/>
+<line x1="594" y1="139" x2="606" y2="139" stroke="#9C4A18" stroke-width="1.4"/>
+<line x1="594" y1="213" x2="606" y2="213" stroke="#9C4A18" stroke-width="1.4"/>
+<text x="614" y="160" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#9C4A18">the gap</text>
+<text x="614" y="178" font-family="IBM Plex Sans" font-size="11.5" fill="#9C4A18">buttons are visible</text>
+<text x="614" y="193" font-family="IBM Plex Sans" font-size="11.5" fill="#9C4A18">but do nothing —</text>
+<text x="614" y="208" font-family="IBM Plex Sans" font-size="11.5" fill="#9C4A18">listeners not</text>
+<text x="614" y="223" font-family="IBM Plex Sans" font-size="11.5" fill="#9C4A18">attached yet</text>
+
+<text x="16" y="270" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">The browser cannot know what to fetch until it has parsed the HTML. That dependency is what creates the staircase.</text>
+</svg>
+<p class="cap"><b>Paint, then hydrate</b>CSS arriving makes the page look correct. JavaScript executing makes it work. The window between them is why bundle size is an obsession in frontend performance.</p>
+</div>
+
+<figure>
+<img src="images/03-13-the-hydration-moment.jpg" width="1500" height="829" loading="lazy" decoding="async" alt="The hydration moment">
+<figcaption><b>The hydration moment</b>The arrow traces from the rendered page back to the script tags that make it interactive.</figcaption>
+</figure>
+
+<h3 class="sub">The frontend's infrastructure is identical</h3>
+
+<figure>
+<img src="images/03-14-etc-nginx-conf-d-frontend-conf.jpg" width="1500" height="1019" loading="lazy" decoding="async" alt="/etc/nginx/conf.d/frontend.conf">
+<figcaption><b>/etc/nginx/conf.d/frontend.conf</b>Put this beside backend.conf and diff them. The <code>server_name</code> differs and the <code>proxy_pass</code> port differs. The TLS block, the Certbot lines and the 301 redirect are the same.</figcaption>
+</figure>
+
+<figure>
+<img src="images/03-15-the-dns-records-again.jpg" width="1500" height="642" loading="lazy" decoding="async" alt="The DNS records again">
+<figcaption><b>The DNS records again</b>Revisited for the frontend trace. <code>frontend-demo</code> points at the same <code>54.175.148.96</code>.</figcaption>
+</figure>
+
+<figure>
+<img src="images/03-16-the-same-inbound-rules.jpg" width="1500" height="268" loading="lazy" decoding="async" alt="The same inbound rules">
+<figcaption><b>The same inbound rules</b>Same security group, same three ports. Nothing was added for the frontend.</figcaption>
+</figure>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Hop</th><th>Backend</th><th>Frontend</th></tr></thead>
+<tbody>
+<tr><td>DNS A record</td><td><code>backend-demo</code> → <code>54.175.148.96</code></td><td><code>frontend-demo</code> → <code>54.175.148.96</code></td></tr>
+<tr><td>Firewall</td><td>ports 80, 443</td><td><strong>same security group</strong></td></tr>
+<tr><td>Machine</td><td>same EC2</td><td><strong>same EC2</strong></td></tr>
+<tr><td>Nginx <code>server_name</code></td><td><code>backend-demo.…</code></td><td><code>frontend-demo.…</code></td></tr>
+<tr><td><code>proxy_pass</code></td><td><code>127.0.0.1:3001</code></td><td><code>127.0.0.1:3000</code></td></tr>
+<tr><td>Process</td><td><code>backend</code>, pid 4301</td><td><code>frontend</code>, pid 3853</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="key">
+<p class="tag">One port number</p>
+<p>The entire difference between the frontend stack and the backend stack is <strong>one number in one config line</strong>. "Frontend" and "backend" are roles, not different species of infrastructure. A Next.js server is a server too.</p>
+</div>
+
+<figure>
+<img src="images/03-17-the-html-response-itself.jpg" width="1500" height="689" loading="lazy" decoding="async" alt="The HTML response itself">
+<figcaption><b>The HTML response itself</b>The first document the browser receives, before anything else fires. Everything else on the page is discovered by parsing this.</figcaption>
+</figure>
+</section>
+
+<!-- ══════════════ 5 ══════════════ -->
+<section id="walls">
+<div class="part-rule"><span>Five</span></div>
+<h2 class="head">Why backend logic can't live in the frontend</h2>
+
+<blockquote><p>Whatever frontend logic that you have written, whatever JavaScript that you have written, is all fetched by the browser from our server and it is executed by the browser in the client's machine. So the browser is our runtime — compared to our traditional backends, where we sent a request, the server processed the request and sent us the result. It is exactly the opposite.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 250" role="img" aria-label="Where code runs — server versus browser">
+<defs><marker id="a14" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="12" fill="#0E6E7E">BACKEND</text>
+<rect x="16" y="34" width="100" height="36" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="66" y="56" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">client</text>
+<rect x="220" y="34" width="130" height="36" rx="3" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.6"/>
+<text x="285" y="56" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">server</text>
+<line x1="118" y1="44" x2="216" y2="44" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#a14)"/>
+<text x="167" y="38" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#0E6E7E">request</text>
+<line x1="218" y1="62" x2="120" y2="62" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#a14)"/>
+<text x="167" y="78" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#0E6E7E">only the result</text>
+
+<rect x="220" y="90" width="130" height="30" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="285" y="110" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#16202B">code RUNS here</text>
+<text x="16" y="150" font-family="IBM Plex Sans" font-size="12" fill="#53616F">You control the runtime.</text>
+<text x="16" y="168" font-family="IBM Plex Sans" font-size="12" fill="#53616F">The client never sees the code.</text>
+<text x="16" y="186" font-family="IBM Plex Sans" font-size="12" fill="#53616F">Secrets stay secret.</text>
+
+<line x1="380" y1="16" x2="380" y2="220" stroke="#DDE3E9"/>
+
+<text x="404" y="20" font-family="IBM Plex Mono, monospace" font-size="12" fill="#5B4B8A">FRONTEND</text>
+<rect x="404" y="34" width="130" height="36" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="469" y="56" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">server</text>
+<rect x="614" y="34" width="130" height="36" rx="3" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.6"/>
+<text x="679" y="56" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">browser</text>
+<line x1="536" y1="52" x2="610" y2="52" stroke="#5B4B8A" stroke-width="1.4" marker-end="url(#a14)"/>
+<text x="573" y="44" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#5B4B8A">ships the code</text>
+
+<rect x="614" y="90" width="130" height="30" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="679" y="110" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#16202B">code RUNS here</text>
+<text x="404" y="150" font-family="IBM Plex Sans" font-size="12" fill="#B04A3F">The user controls the runtime.</text>
+<text x="404" y="168" font-family="IBM Plex Sans" font-size="12" fill="#B04A3F">They can read, pause and modify the code.</text>
+<text x="404" y="186" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#B04A3F">Nothing shipped there is secret or trusted.</text>
+</svg>
+<p class="cap"><b>The asymmetry underneath all four walls</b>Anything running in a browser runs on hardware the user owns, in a runtime they can inspect. Secrets aren't secret. Logic isn't trusted. Client-side validation is a suggestion.</p>
+</div>
+
+<h3 class="sub">Wall one · the sandbox</h3>
+
+<blockquote><p>Browser runtimes are often sandboxed environments, which means they are isolated from our operating systems, the processes, and the file system. Everything is an isolated environment, which means the code can only access a limited amount of resources.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 300" role="img" aria-label="The browser sandbox and what it can and cannot reach">
+<rect x="16" y="16" width="728" height="268" rx="6" fill="#F8FAFB" stroke="#CBD4DC" stroke-width="1.4"/>
+<text x="34" y="40" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#8695A3" letter-spacing="0.5">YOUR COMPUTER</text>
+
+<rect x="40" y="54" width="330" height="206" rx="5" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.8"/>
+<text x="58" y="78" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#5B4B8A" letter-spacing="0.5">BROWSER SANDBOX</text>
+<text x="58" y="98" font-family="IBM Plex Sans" font-size="12.5" fill="#16202B">a stranger's JavaScript runs in here</text>
+
+<text x="58" y="130" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#2D7D5A">can reach</text>
+<rect x="58" y="140" width="132" height="26" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="124" y="157" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#16202B">the DOM</text>
+<rect x="200" y="140" width="146" height="26" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="273" y="157" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#16202B">localStorage</text>
+<rect x="58" y="172" width="132" height="26" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="124" y="189" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#16202B">cookies*</text>
+<rect x="200" y="172" width="146" height="26" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="273" y="189" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#16202B">fetch() — via CORS</text>
+<text x="58" y="220" font-family="IBM Plex Sans" font-size="10.5" fill="#5B4B8A">* unless marked HttpOnly</text>
+
+<!-- the wall -->
+<line x1="390" y1="54" x2="390" y2="260" stroke="#B04A3F" stroke-width="2.5" stroke-dasharray="7 5"/>
+<text x="390" y="278" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#B04A3F">cannot cross</text>
+
+<text x="416" y="78" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#B04A3F">cannot reach</text>
+<rect x="416" y="88" width="150" height="30" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="491" y="107" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#16202B">the file system</text>
+<rect x="576" y="88" width="150" height="30" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="651" y="107" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#16202B">environment vars</text>
+<rect x="416" y="126" width="150" height="30" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="491" y="145" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#16202B">raw TCP sockets</text>
+<rect x="576" y="126" width="150" height="30" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="651" y="145" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#16202B">other processes</text>
+<rect x="416" y="164" width="150" height="30" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="491" y="183" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#16202B">binding a port</text>
+<rect x="576" y="164" width="150" height="30" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="651" y="183" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#16202B">your SSH keys</text>
+
+<rect x="416" y="210" width="310" height="50" rx="4" fill="#F6E8DE" stroke="#9C4A18" stroke-width="1.3"/>
+<text x="432" y="230" font-family="IBM Plex Sans" font-size="12" fill="#16202B">A backend needs most of the right-hand list.</text>
+<text x="432" y="248" font-family="IBM Plex Sans" font-size="12" fill="#16202B">That's the wall.</text>
+</svg>
+<p class="cap"><b>What the sandbox permits and forbids</b>Every page you visit executes untrusted code from a stranger. The sandbox is what makes that survivable — and it forbids nearly everything a backend needs.</p>
+</div>
+
+<blockquote><p>Essentially what a browser is doing is fetching code from a remote server and executing it in the user's browser. If it's not careful enough or isolated enough, the remote code can easily access data or files from the user's computer. Imagine you go to a website and you have no idea what the code of that website is — if browsers did not isolate environments, that code can easily get access to your file system, copy all your files, your sensitive details, and send it to their servers.</p></blockquote>
+
+<h3 class="sub">Wall two · CORS</h3>
+
+<blockquote><p>You can imagine CORS as a policy — a security policy of browsers — which restricts JavaScript code to call external APIs which are not the same as the current domain.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 220" role="img" aria-label="Same origin policy — scheme, host and port must all match">
+<text x="16" y="22" font-family="IBM Plex Sans" font-size="13" fill="#16202B">A page served from</text>
+<rect x="160" y="6" width="300" height="24" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="310" y="23" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#16202B">https://frontend-demo.sriniously.xyz</text>
+<text x="470" y="22" font-family="IBM Plex Sans" font-size="13" fill="#16202B">may call:</text>
+
+<rect x="16" y="48" width="480" height="28" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="30" y="67" font-family="IBM Plex Mono, monospace" font-size="11" fill="#16202B">https://frontend-demo.sriniously.xyz/api</text>
+<text x="510" y="67" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#2D7D5A">allowed — same origin</text>
+
+<rect x="16" y="84" width="480" height="28" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="30" y="103" font-family="IBM Plex Mono, monospace" font-size="11" fill="#16202B">http://frontend-demo.sriniously.xyz/api</text>
+<text x="510" y="103" font-family="IBM Plex Sans" font-size="12" fill="#B04A3F">blocked — scheme differs</text>
+
+<rect x="16" y="120" width="480" height="28" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="30" y="139" font-family="IBM Plex Mono, monospace" font-size="11" fill="#16202B">https://backend-demo.sriniously.xyz/api</text>
+<text x="510" y="139" font-family="IBM Plex Sans" font-size="12" fill="#B04A3F">blocked — host differs</text>
+
+<rect x="16" y="156" width="480" height="28" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="30" y="175" font-family="IBM Plex Mono, monospace" font-size="11" fill="#16202B">https://frontend-demo.sriniously.xyz:8080/</text>
+<text x="510" y="175" font-family="IBM Plex Sans" font-size="12" fill="#B04A3F">blocked — port differs</text>
+
+<text x="16" y="206" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">An origin is scheme + host + port. All three must match, or the browser refuses to let the script read the response.</text>
+</svg>
+<p class="cap"><b>Same-Origin Policy</b>Note the third row: your own backend on a sibling subdomain is a <em>different origin</em>. This is why real apps have to configure CORS deliberately rather than it just working.</p>
+</div>
+
+<div class="dia">
+<svg viewBox="0 0 760 250" role="img" aria-label="The CORS preflight exchange">
+<defs><marker id="a15" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<rect x="40" y="16" width="140" height="32" rx="4" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="110" y="37" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">browser</text>
+<rect x="560" y="16" width="140" height="32" rx="4" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="630" y="37" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">server</text>
+<line x1="110" y1="52" x2="110" y2="232" stroke="#DDE3E9" stroke-width="1.5"/>
+<line x1="630" y1="52" x2="630" y2="232" stroke="#DDE3E9" stroke-width="1.5"/>
+
+<line x1="118" y1="80" x2="618" y2="80" stroke="#9C4A18" stroke-width="1.5" marker-end="url(#a15)"/>
+<text x="368" y="72" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#9C4A18">OPTIONS /api — the preflight</text>
+<text x="368" y="96" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#8695A3">Origin: … · Access-Control-Request-Method: POST</text>
+
+<line x1="622" y1="126" x2="122" y2="126" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#a15)"/>
+<text x="368" y="118" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#0E6E7E">Access-Control-Allow-Origin / -Methods</text>
+<text x="368" y="142" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">the server declares who may call it</text>
+
+<rect x="250" y="158" width="236" height="26" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="368" y="176" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">browser permits it — now send the real one</text>
+
+<line x1="118" y1="210" x2="618" y2="210" stroke="#2D7D5A" stroke-width="1.5" marker-end="url(#a15)"/>
+<text x="368" y="202" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#2D7D5A">POST /api</text>
+</svg>
+<p class="cap"><b>The preflight exchange</b>For anything beyond a "simple" request the browser asks permission before sending the real one. The server's headers are the answer.</p>
+</div>
+
+<div class="sec">
+<p class="tag">Three things people get wrong about CORS</p>
+<p><strong>It is enforced by the browser, not the server.</strong> <code>curl</code> ignores it entirely. CORS protects <em>users</em>, not APIs — it is not an access control mechanism and must never be treated as one.</p>
+<p><strong>It often does not stop the request being sent</strong> — it stops the <em>response being read</em> by the script. Side effects can still occur, which is precisely why CSRF tokens exist as a separate control.</p>
+<p><strong><code>Access-Control-Allow-Origin: *</code> combined with credentials is invalid</strong> and browsers reject it. Reflecting the <code>Origin</code> header back without validating it is a common real-world vulnerability.</p>
+</div>
+
+<h3 class="sub">Wall three · databases</h3>
+
+<blockquote><p>These drivers are written to work in environments that can handle socket connections, handle binary data, and maintain persistent connections. Things that browsers cannot do.</p></blockquote>
+
+<p>Database drivers speak binary wire protocols over raw TCP sockets, and browsers cannot open raw TCP. That alone settles it — but the connection pooling argument is the part most people haven't heard.</p>
+
+<blockquote><p>Backend servers maintain a list of connections — often called a connection pool — to our database server, so that it does not have to create and destroy connections again and again. Because backend servers receive thousands and thousands of requests in seconds, and if they do the connecting and destroying logic with each request, the database server is going to get overwhelmed.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 320" role="img" aria-label="Connection pooling versus one connection per user">
+<defs><marker id="a16" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="12" fill="#2D7D5A">WITH A POOL — how backends do it</text>
+
+<rect x="16" y="34" width="80" height="22" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="56" y="49" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#16202B">user</text>
+<rect x="16" y="60" width="80" height="22" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="56" y="75" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#16202B">user</text>
+<rect x="16" y="86" width="80" height="22" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="56" y="101" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#16202B">user</text>
+<text x="56" y="126" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#8695A3">…thousands</text>
+
+<line x1="98" y1="72" x2="128" y2="72" stroke="#5B4B8A" stroke-width="1.4" marker-end="url(#a16)"/>
+
+<rect x="130" y="40" width="110" height="96" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.5"/>
+<text x="185" y="62" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">backend</text>
+<text x="185" y="80" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#0A4F5B">pool of ~20</text>
+<text x="185" y="95" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#0A4F5B">reused</text>
+<text x="185" y="110" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#0A4F5B">connections</text>
+
+<line x1="242" y1="76" x2="278" y2="88" stroke="#2D7D5A" stroke-width="1.4" marker-end="url(#a16)"/>
+<line x1="242" y1="88" x2="278" y2="88" stroke="#2D7D5A" stroke-width="1.4"/>
+<line x1="242" y1="100" x2="278" y2="88" stroke="#2D7D5A" stroke-width="1.4"/>
+
+<rect x="280" y="66" width="86" height="46" rx="4" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.5"/>
+<text x="323" y="86" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">database</text>
+<text x="323" y="102" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#2D7D5A">comfortable</text>
+
+<text x="16" y="160" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">Opening a connection costs a TCP handshake, TLS,</text>
+<text x="16" y="176" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">authentication and session setup. Doing that per</text>
+<text x="16" y="192" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">request would dominate your latency budget.</text>
+
+<line x1="400" y1="16" x2="400" y2="300" stroke="#DDE3E9"/>
+
+<text x="424" y="20" font-family="IBM Plex Mono, monospace" font-size="12" fill="#B04A3F">WITHOUT — if browsers talked to the DB</text>
+
+<rect x="424" y="34" width="80" height="22" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="464" y="49" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#16202B">user</text>
+<rect x="424" y="60" width="80" height="22" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="464" y="75" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#16202B">user</text>
+<rect x="424" y="86" width="80" height="22" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="464" y="101" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#16202B">user</text>
+<rect x="424" y="112" width="80" height="22" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="464" y="127" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#16202B">user</text>
+<text x="464" y="152" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#8695A3">…thousands</text>
+
+<line x1="506" y1="45" x2="588" y2="76" stroke="#B04A3F" stroke-width="1.2" marker-end="url(#a16)"/>
+<line x1="506" y1="71" x2="588" y2="82" stroke="#B04A3F" stroke-width="1.2" marker-end="url(#a16)"/>
+<line x1="506" y1="97" x2="588" y2="88" stroke="#B04A3F" stroke-width="1.2" marker-end="url(#a16)"/>
+<line x1="506" y1="123" x2="588" y2="94" stroke="#B04A3F" stroke-width="1.2" marker-end="url(#a16)"/>
+<text x="547" y="140" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#B04A3F">one each</text>
+
+<rect x="590" y="62" width="110" height="46" rx="4" fill="#F7E3E0" stroke="#B04A3F" stroke-width="1.5"/>
+<text x="645" y="82" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">database</text>
+<text x="645" y="98" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#B04A3F">overwhelmed</text>
+
+<rect x="424" y="180" width="300" height="76" rx="4" fill="#F6E8DE" stroke="#9C4A18" stroke-width="1.4"/>
+<text x="440" y="202" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#9C4A18">And the part that ends the argument:</text>
+<text x="440" y="222" font-family="IBM Plex Sans" font-size="12" fill="#16202B">every browser would need the database</text>
+<text x="440" y="238" font-family="IBM Plex Sans" font-size="12" fill="#16202B">credentials — shipped to every user, in</text>
+<text x="440" y="254" font-family="IBM Plex Sans" font-size="12" fill="#16202B">readable JavaScript.</text>
+</svg>
+<p class="cap"><b>Pooling, and the thing underneath it</b>The performance argument is real, but the security one is fatal: direct browser-to-database means handing out database credentials to everyone who loads the page.</p>
+</div>
+
+<h3 class="sub">Wall four · computing power</h3>
+
+<blockquote><p>Frontend applications are everywhere. It could be a smartphone, it could be a desktop, it could be a laptop — and any kind of environment we can imagine, even a computer which has 256 MB of RAM and a single-core processor. The user might not have enough computing power to perform some heavy business logic, and things will start to lag and sometimes break because of the load.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 210" role="img" aria-label="Client hardware varies, server hardware is controlled">
+<defs><marker id="a17" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="12" fill="#B04A3F">CLIENT SIDE — hardware you don't control</text>
+<rect x="16" y="34" width="84" height="52" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="58" y="56" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">flagship</text>
+<text x="58" y="72" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">laptop</text>
+<rect x="108" y="34" width="84" height="52" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="150" y="56" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">mid-range</text>
+<text x="150" y="72" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">phone</text>
+<rect x="200" y="34" width="84" height="52" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="242" y="56" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">256 MB RAM</text>
+<text x="242" y="72" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">single core</text>
+
+<text x="16" y="112" font-family="IBM Plex Sans" font-size="12" fill="#B04A3F">Cannot be upgraded. Battery constrained.</text>
+<text x="16" y="130" font-family="IBM Plex Sans" font-size="12" fill="#B04A3F">Network may be terrible. You must plan for the worst one.</text>
+
+<line x1="330" y1="16" x2="330" y2="180" stroke="#DDE3E9"/>
+
+<text x="356" y="20" font-family="IBM Plex Mono, monospace" font-size="12" fill="#2D7D5A">SERVER SIDE — hardware you do control</text>
+<rect x="356" y="34" width="120" height="52" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="416" y="56" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">one known</text>
+<text x="416" y="72" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">configuration</text>
+
+<line x1="480" y1="46" x2="514" y2="46" stroke="#2D7D5A" stroke-width="1.4" marker-end="url(#a17)"/>
+<rect x="516" y="32" width="100" height="26" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="566" y="50" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#16202B">bigger box</text>
+<text x="624" y="50" font-family="IBM Plex Sans" font-size="10.5" fill="#53616F">vertical</text>
+
+<line x1="480" y1="74" x2="514" y2="74" stroke="#2D7D5A" stroke-width="1.4" marker-end="url(#a17)"/>
+<rect x="516" y="60" width="100" height="26" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="566" y="78" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#16202B">more boxes</text>
+<text x="624" y="78" font-family="IBM Plex Sans" font-size="10.5" fill="#53616F">horizontal</text>
+
+<text x="356" y="112" font-family="IBM Plex Sans" font-size="12" fill="#2D7D5A">Scaling is a config change you make.</text>
+<text x="356" y="130" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#2D7D5A">You cannot upgrade your users' phones.</text>
+</svg>
+<p class="cap"><b>Known hardware versus unknown hardware</b>Centralising heavy work means you only have to make one machine fast, and you can make it faster whenever you want.</p>
+</div>
+
+<h3 class="sub">All four together</h3>
+
+<div class="dia">
+<svg viewBox="0 0 760 320" role="img" aria-label="The four walls stopping backend logic living in the frontend">
+<defs><marker id="a18" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<rect x="230" y="12" width="300" height="38" rx="4" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.4"/>
+<text x="380" y="36" text-anchor="middle" font-family="IBM Plex Sans" font-size="13.5" font-style="italic" fill="#16202B">"just do it in the frontend"</text>
+
+<line x1="380" y1="50" x2="380" y2="66" stroke="#5B4B8A" stroke-width="1.4"/>
+<line x1="105" y1="66" x2="655" y2="66" stroke="#5B4B8A" stroke-width="1.4"/>
+<line x1="105" y1="66" x2="105" y2="84" stroke="#B04A3F" stroke-width="1.4" marker-end="url(#a18)"/>
+<line x1="288" y1="66" x2="288" y2="84" stroke="#B04A3F" stroke-width="1.4" marker-end="url(#a18)"/>
+<line x1="471" y1="66" x2="471" y2="84" stroke="#B04A3F" stroke-width="1.4" marker-end="url(#a18)"/>
+<line x1="655" y1="66" x2="655" y2="84" stroke="#B04A3F" stroke-width="1.4" marker-end="url(#a18)"/>
+
+<rect x="30" y="86" width="150" height="120" rx="4" fill="#F7E3E0" stroke="#B04A3F" stroke-width="1.5"/>
+<text x="105" y="110" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">SANDBOX</text>
+<text x="105" y="134" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">no file system</text>
+<text x="105" y="152" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">no env vars</text>
+<text x="105" y="170" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">no raw sockets</text>
+<text x="105" y="188" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">no listening port</text>
+
+<rect x="213" y="86" width="150" height="120" rx="4" fill="#F7E3E0" stroke="#B04A3F" stroke-width="1.5"/>
+<text x="288" y="110" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">CORS</text>
+<text x="288" y="134" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">can't freely call</text>
+<text x="288" y="152" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">other origins</text>
+<text x="288" y="176" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">and you don't control</text>
+<text x="288" y="192" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">their headers</text>
+
+<rect x="396" y="86" width="150" height="120" rx="4" fill="#F7E3E0" stroke="#B04A3F" stroke-width="1.5"/>
+<text x="471" y="110" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">DATABASE</text>
+<text x="471" y="134" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">no raw TCP</text>
+<text x="471" y="152" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">no connection pool</text>
+<text x="471" y="176" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">would leak the</text>
+<text x="471" y="192" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">credentials</text>
+
+<rect x="580" y="86" width="150" height="120" rx="4" fill="#F7E3E0" stroke="#B04A3F" stroke-width="1.5"/>
+<text x="655" y="110" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">COMPUTE</text>
+<text x="655" y="134" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">hardware varies</text>
+<text x="655" y="152" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">wildly</text>
+<text x="655" y="176" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">can't be upgraded</text>
+<text x="655" y="192" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">by you</text>
+
+<line x1="105" y1="206" x2="105" y2="226" stroke="#0E6E7E" stroke-width="1.4"/>
+<line x1="288" y1="206" x2="288" y2="226" stroke="#0E6E7E" stroke-width="1.4"/>
+<line x1="471" y1="206" x2="471" y2="226" stroke="#0E6E7E" stroke-width="1.4"/>
+<line x1="655" y1="206" x2="655" y2="226" stroke="#0E6E7E" stroke-width="1.4"/>
+<line x1="105" y1="226" x2="655" y2="226" stroke="#0E6E7E" stroke-width="1.4"/>
+<line x1="380" y1="226" x2="380" y2="246" stroke="#0E6E7E" stroke-width="1.6" marker-end="url(#a18)"/>
+
+<rect x="170" y="248" width="420" height="54" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.6"/>
+<text x="380" y="272" text-anchor="middle" font-family="IBM Plex Sans" font-size="13.5" font-weight="600" fill="#16202B">The backend exists because the client is</text>
+<text x="380" y="291" text-anchor="middle" font-family="IBM Plex Sans" font-size="13.5" font-weight="600" fill="#16202B">untrusted, constrained, and unknown</text>
+</svg>
+<p class="cap"><b>Four independent walls, one conclusion</b>Any one of these would be enough on its own. Together they mean the question isn't really "why not" — it's that there was never a path in the first place.</p>
+</div>
+</section>
+
+<footer>
+<div class="nextprev">
+<a href="./02-read-me-first.html"><span class="lbl">← PREVIOUS</span><span class="ttl">Read me first: the whole map</span></a>
+</div>
+  <p>Annotated from the walkthrough video. Screenshots are stills from the original; diagrams and security notes added.</p>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,23 @@
+---
+layout: page
+title: Blog
+permalink: /blog/
+eyebrow: Blog
+lede: Longer posts, grouped into series and meant to be read in order.
+description: "Blog series by Jennifer Wang."
+---
+
+<section class="band band-tight">
+  <div class="wrap">
+    {%- assign series = site.pages | where: "layout", "series" | sort: "order" %}
+    {%- if series.size > 0 %}
+    <div class="cards" data-reveal-group="70">
+      {%- for item in series %}
+        {% include project-card.html item=item %}
+      {%- endfor %}
+    </div>
+    {%- else %}
+    <p class="empty">Add a series folder under <code>blog/</code> with an <code>index.html</code> using <code>layout: series</code>.</p>
+    {%- endif %}
+  </div>
+</section>

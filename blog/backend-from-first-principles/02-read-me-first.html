@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Read Me First: The Whole Map · Backend From First Principles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF1F4; --card:#FFF;
+  --ink:#16202B; --ink-soft:#53616F; --ink-faint:#8695A3;
+  --rule:#CBD4DC; --rule-soft:#DDE3E9;
+  --teal:#0E6E7E; --teal-deep:#0A4F5B; --teal-wash:#DCEAEC;
+  --amber:#9C4A18; --amber-wash:#F6E8DE;
+  --green:#2D7D5A; --green-wash:#DCEBE3;
+  --red:#B04A3F; --red-wash:#F7E3E0;
+  --violet:#5B4B8A; --violet-wash:#E4E0EF;
+  --term:#131C25;
+  --measure:70ch;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:17px;line-height:1.65;
+  -webkit-font-smoothing:antialiased}
+.shell{max-width:1180px;margin:0 auto;padding:0 28px}
+
+.serieshead{display:flex;align-items:center;gap:14px;padding:26px 0 0}
+.serieshead .dot{width:7px;height:7px;background:var(--teal);border-radius:50%}
+.serieshead span{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;color:var(--ink-faint)}
+a.serieshead{text-decoration:none}
+a.serieshead:hover span{color:var(--teal)}
+
+.mast{border-bottom:1px solid var(--rule);padding:48px 0 44px}
+.mast .kicker{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.06em;color:var(--teal);margin:0 0 18px}
+.mast h1{font-family:'IBM Plex Serif',Georgia,serif;font-weight:600;
+  font-size:clamp(34px,5.4vw,58px);line-height:1.06;letter-spacing:-.02em;margin:0 0 20px;max-width:17ch}
+.mast .standfirst{font-family:'IBM Plex Serif',Georgia,serif;font-size:19px;line-height:1.62;
+  color:var(--ink-soft);max-width:58ch;margin:0}
+.mast .standfirst em{color:var(--ink);font-style:italic}
+
+.contents{border:1px solid var(--rule);background:var(--card);padding:26px 30px 30px;margin:38px 0 60px;max-width:540px}
+.contents h2{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.06em;color:var(--ink-faint);margin:0 0 14px;font-weight:500}
+.contents ol{margin:0;padding:0;list-style:none;counter-reset:toc}
+.contents li{counter-increment:toc;border-top:1px solid var(--rule-soft)}
+.contents li:first-child{border-top:none}
+.contents a{display:flex;gap:14px;align-items:baseline;padding:9px 0;text-decoration:none;color:var(--ink)}
+.contents a:hover{color:var(--teal)}
+.contents a::before{content:counter(toc,decimal-leading-zero);font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--teal)}
+
+section{padding:8px 0 60px}
+.part-rule{display:flex;align-items:center;gap:16px;margin:56px 0 26px}
+.part-rule span{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.06em;color:var(--teal);white-space:nowrap}
+.part-rule::after{content:"";height:1px;background:var(--rule);flex:1}
+
+h2.head{font-family:'IBM Plex Serif',Georgia,serif;font-size:clamp(26px,3.4vw,36px);
+  font-weight:600;letter-spacing:-.015em;line-height:1.15;margin:0 0 22px;max-width:24ch}
+h3.sub{font-size:20px;font-weight:600;margin:44px 0 14px;letter-spacing:-.005em}
+h4.minor{font-size:16.5px;font-weight:600;margin:30px 0 10px}
+p{margin:0 0 18px;max-width:var(--measure)}
+ul,ol{max-width:var(--measure);padding-left:22px}
+li{margin-bottom:8px}
+a{color:var(--teal)}
+code{font-family:'IBM Plex Mono',monospace;font-size:.875em;background:#E2E7EC;padding:1px 5px;border-radius:2px}
+
+.dia{margin:34px 0;background:var(--card);border:1px solid var(--rule);border-radius:3px;padding:26px 24px 20px}
+.dia svg{display:block;width:100%;height:auto}
+.dia .cap{margin:18px 0 0;padding-top:14px;border-top:1px solid var(--rule-soft);
+  font-size:14px;line-height:1.55;color:var(--ink-soft);max-width:none}
+.dia .cap b{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.05em;color:var(--teal);font-weight:500;display:block;margin-bottom:5px}
+
+.tbl{margin:26px 0;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{text-align:left;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.05em;
+  color:var(--ink-faint);font-weight:500;padding:0 16px 9px 0;border-bottom:1px solid var(--rule);white-space:nowrap}
+td{padding:11px 16px 11px 0;border-bottom:1px solid var(--rule-soft);vertical-align:top}
+td code{font-size:12.5px;background:transparent;padding:0;color:var(--teal-deep)}
+tr:last-child td{border-bottom:none}
+
+blockquote{margin:30px 0;padding:2px 0 2px 24px;border-left:2px solid var(--rule);max-width:64ch;
+  font-family:'IBM Plex Serif',Georgia,serif;font-size:18px;line-height:1.6;color:var(--ink-soft);font-style:italic}
+blockquote p{margin:0;max-width:none}
+
+.sec{background:var(--amber-wash);border-left:2px solid var(--amber);padding:20px 24px;margin:30px 0;max-width:var(--measure)}
+.sec .tag{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--amber);margin-bottom:8px}
+.sec p{margin-bottom:12px;font-size:15.5px}
+.sec p:last-child{margin-bottom:0}
+.sec code{background:#EFDECF}
+
+.key{background:var(--teal-wash);border-left:2px solid var(--teal);padding:20px 24px;margin:30px 0;max-width:var(--measure)}
+.key .tag{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--teal-deep);margin-bottom:8px}
+.key p{margin:0;font-size:15.5px}
+.key code{background:#CADFE2}
+
+footer{border-top:1px solid var(--rule);padding:40px 0 80px;margin-top:40px;font-size:14.5px;color:var(--ink-faint)}
+footer a{text-decoration:none}
+.nextprev{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:26px}
+.nextprev a{display:block;border:1px solid var(--rule);background:var(--card);padding:16px 20px;
+  text-decoration:none;color:var(--ink);flex:1;min-width:240px}
+.nextprev a:hover{border-color:var(--teal)}
+.nextprev .lbl{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.05em;color:var(--teal);display:block;margin-bottom:5px}
+.nextprev .ttl{font-family:'IBM Plex Serif',Georgia,serif;font-size:16.5px;font-weight:600}
+
+@media (max-width:820px){
+  body{font-size:16px}
+  .shell{padding:0 18px}
+  .dia{padding:18px 14px 14px}
+}
+
+</style>
+</head>
+<body>
+<div class="shell">
+
+<a class="serieshead" href="./"><span class="dot"></span><span>BACKEND FROM FIRST PRINCIPLES · POST 02</span></a>
+
+<header class="mast">
+  <p class="kicker">Read me first</p>
+  <h1>The whole map, before any single piece of it</h1>
+  <p class="standfirst">Thirty-one topics, organised the way I wish someone had organised them for me. <em>Languages and frameworks change; the mechanics underneath them don't.</em> Learn the mechanics and you can pick up any framework in weeks. Learn only a framework and you're stuck the moment you have to switch.</p>
+</header>
+
+<section>
+
+<h3 class="sub">Why this order</h3>
+
+<p>Backend engineering is not just about building basic CRUDdy APIs. It's about building systems that are reliable, scalable, fault-tolerant and maintainable. Most people learn this piecemeal, through bootcamps, online courses and years of trial and error.</p>
+
+<p>Most tutorials also teach these concepts through the lens of one specific framework: Express, Spring Boot, Rails. That creates blind spots. If your company suddenly needs to migrate from Rails to Go, how much of what you know is actually transferable, versus tied to the framework you happened to learn first?</p>
+
+<p>This roadmap is built from books, open-source codebases, and years of hitting these gaps directly. It's grouped into seven arcs, and the order is deliberate: each arc assumes the one before it.</p>
+
+<div class="dia">
+<svg viewBox="0 0 760 420" role="img" aria-label="The seven arcs of the roadmap and how they build on each other">
+<defs>
+<marker id="r1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+<path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+</defs>
+
+<!-- arc 1 -->
+<rect x="16" y="20" width="500" height="42" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.6"/>
+<text x="34" y="39" font-family="IBM Plex Sans" font-size="13.5" font-weight="600" fill="#16202B">A · The whole picture first</text>
+<text x="34" y="55" font-family="IBM Plex Sans" font-size="11.5" fill="#0A4F5B">one request, end to end, before zooming into any layer</text>
+<text x="528" y="46" font-family="IBM Plex Mono, monospace" font-size="11" fill="#8695A3">§1</text>
+
+<line x1="266" y1="62" x2="266" y2="76" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#r1)"/>
+
+<!-- arc 2 -->
+<rect x="16" y="78" width="500" height="42" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.3"/>
+<text x="34" y="97" font-family="IBM Plex Sans" font-size="13.5" font-weight="600" fill="#16202B">B · How data moves</text>
+<text x="34" y="113" font-family="IBM Plex Sans" font-size="11.5" fill="#0A4F5B">HTTP · routing · serialization</text>
+<text x="528" y="104" font-family="IBM Plex Mono, monospace" font-size="11" fill="#8695A3">§2-4</text>
+
+<line x1="266" y1="120" x2="266" y2="134" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#r1)"/>
+
+<!-- arc 3 -->
+<rect x="16" y="136" width="500" height="42" rx="4" fill="#F6E8DE" stroke="#9C4A18" stroke-width="1.6"/>
+<text x="34" y="155" font-family="IBM Plex Sans" font-size="13.5" font-weight="600" fill="#16202B">C · The request pipeline</text>
+<text x="34" y="171" font-family="IBM Plex Sans" font-size="11.5" fill="#9C4A18">auth · validation · middleware · request context</text>
+<text x="528" y="162" font-family="IBM Plex Mono, monospace" font-size="11" fill="#8695A3">§5-8</text>
+
+<line x1="266" y1="178" x2="266" y2="192" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#r1)"/>
+
+<!-- arc 4 -->
+<rect x="16" y="194" width="500" height="42" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.3"/>
+<text x="34" y="213" font-family="IBM Plex Sans" font-size="13.5" font-weight="600" fill="#16202B">D · Shaping the application</text>
+<text x="34" y="229" font-family="IBM Plex Sans" font-size="11.5" fill="#0A4F5B">handlers · CRUD · REST · databases · business logic</text>
+<text x="528" y="220" font-family="IBM Plex Mono, monospace" font-size="11" fill="#8695A3">§9-13</text>
+
+<line x1="266" y1="236" x2="266" y2="250" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#r1)"/>
+
+<!-- arc 5 -->
+<rect x="16" y="252" width="500" height="42" rx="4" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.3"/>
+<text x="34" y="271" font-family="IBM Plex Sans" font-size="13.5" font-weight="600" fill="#16202B">E · Everything around the request</text>
+<text x="34" y="287" font-family="IBM Plex Sans" font-size="11.5" fill="#2D7D5A">caching · email · queues · search · storage · real-time</text>
+<text x="528" y="278" font-family="IBM Plex Mono, monospace" font-size="11" fill="#8695A3">§14-17, 25-26</text>
+
+<line x1="266" y1="294" x2="266" y2="308" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#r1)"/>
+
+<!-- arc 6 -->
+<rect x="16" y="310" width="500" height="42" rx="4" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.3"/>
+<text x="34" y="329" font-family="IBM Plex Sans" font-size="13.5" font-weight="600" fill="#16202B">F · Running it in the real world</text>
+<text x="34" y="345" font-family="IBM Plex Sans" font-size="11.5" fill="#2D7D5A">errors · config · observability · shutdown · scaling · testing</text>
+<text x="528" y="336" font-family="IBM Plex Mono, monospace" font-size="11" fill="#8695A3">§18-21, 23-24, 27</text>
+
+<line x1="266" y1="352" x2="266" y2="366" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#r1)"/>
+
+<!-- arc 7 -->
+<rect x="16" y="368" width="500" height="42" rx="4" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.3"/>
+<text x="34" y="387" font-family="IBM Plex Sans" font-size="13.5" font-weight="600" fill="#16202B">G · Standards and delivery</text>
+<text x="34" y="403" font-family="IBM Plex Sans" font-size="11.5" fill="#5B4B8A">12-factor · OpenAPI · webhooks · DevOps</text>
+<text x="528" y="394" font-family="IBM Plex Mono, monospace" font-size="11" fill="#8695A3">§28-31</text>
+
+<!-- security spine -->
+<rect x="596" y="20" width="150" height="390" rx="4" fill="#F7E3E0" stroke="#B04A3F" stroke-width="1.6"/>
+<text x="671" y="46" text-anchor="middle" font-family="IBM Plex Sans" font-size="13.5" font-weight="600" fill="#16202B">Security</text>
+<text x="671" y="64" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#B04A3F">§22</text>
+<line x1="616" y1="80" x2="726" y2="80" stroke="#E4B9B0"/>
+<text x="671" y="108" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">not a chapter</text>
+<text x="671" y="126" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#16202B">at the end</text>
+<text x="671" y="160" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#B04A3F">every arc gets its</text>
+<text x="671" y="176" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#B04A3F">own "where does</text>
+<text x="671" y="192" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#B04A3F">this break"</text>
+<line x1="616" y1="214" x2="726" y2="214" stroke="#E4B9B0"/>
+<text x="671" y="240" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">because you</text>
+<text x="671" y="256" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">can't threat</text>
+<text x="671" y="272" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">model a system</text>
+<text x="671" y="288" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">you haven't</text>
+<text x="671" y="304" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">drawn yet</text>
+
+<line x1="520" y1="41" x2="592" y2="41" stroke="#B04A3F" stroke-width="1.1" stroke-dasharray="3 3"/>
+<line x1="520" y1="157" x2="592" y2="157" stroke="#B04A3F" stroke-width="1.1" stroke-dasharray="3 3"/>
+<line x1="520" y1="215" x2="592" y2="215" stroke="#B04A3F" stroke-width="1.1" stroke-dasharray="3 3"/>
+<line x1="520" y1="331" x2="592" y2="331" stroke="#B04A3F" stroke-width="1.1" stroke-dasharray="3 3"/>
+</svg>
+<p class="cap"><b>Seven arcs, one spine</b>The arcs stack: you can't reason about middleware ordering until you know the request pipeline, and you can't design a business logic layer until you know where data lives. Security runs alongside all of them rather than sitting at the end, for the reason in <a href="./01-why-this-blog-exists.html">the last post</a>.</p>
+</div>
+
+</section>
+
+<!-- ========== ARC A ========== -->
+<section>
+<div class="part-rule"><span>Arc A · the whole picture first</span></div>
+
+<h2 class="head">1 · A high-level overview</h2>
+<p>Before diving into any one piece, start with the full picture: what actually happens when a request leaves a browser, hops across the network and through firewalls, reaches a backend server sitting somewhere on AWS, and comes back as a response. This section is about building a mental model of client-server communication before zooming into any single layer.</p>
+</section>
+
+<!-- ========== ARC B ========== -->
+<section>
+<div class="part-rule"><span>Arc B · how data moves</span></div>
+
+<h2 class="head">2 · HTTP protocol</h2>
+<p>The protocol underlying almost everything else: how HTTP messages are structured, the different header types (request, response, general, security), the core methods and when each applies. From there: CORS and preflight requests, response structure and status codes, HTTP caching with ETags and max-age, the differences across HTTP 1.1, 2.0 and 3.0, content negotiation, persistent connections, compression (gzip, deflate, brotli), and the security layer with SSL, TLS and HTTPS.</p>
+
+<h2 class="head">3 · Routing</h2>
+<p>How URLs map to server-side logic, and how routing ties into HTTP methods. Route components (path versus query parameters), route types (static, dynamic, nested, wildcard, regex-based), API versioning strategies and deprecation, route grouping for shared middleware and permissions, route security, and performance tuning for route matching.</p>
+
+<h2 class="head">4 · Serialization and deserialization</h2>
+<p>How data gets translated into a transportable format on the way out and back again on the way in. Text-based formats (JSON, XML) versus binary (Protobuf) and their performance trade-offs, JSON structure and data types, common pitfalls (missing fields, null handling, date and timezone issues), error handling, security concerns including injection risks and schema validation, and the readability-versus-performance trade-off.</p>
+</section>
+
+<!-- ========== ARC C ========== -->
+<section>
+<div class="part-rule"><span>Arc C · the request pipeline</span></div>
+
+<h2 class="head">5 · Authentication and authorization</h2>
+<p>Stateful versus stateless auth, basic auth, token-based auth, sessions, JWTs, cookies, OAuth and OpenID Connect, API keys, multi-factor auth, hashing and salting, and access control models (RBAC, ABAC). Plus the security practices around them: secure cookies, CSRF, XSS and MITM prevention, audit logging, obscuring auth error messages so they don't leak information, consistent failure responses, rate limiting and lockouts, and timing-attack prevention.</p>
+
+<div class="key">
+<p class="tag">The distinction this whole section rests on</p>
+<p>Authentication is <em>who are you</em>. Authorization is <em>what are you allowed to do</em>. They fail differently, they're attacked differently, and conflating them is how most access control bugs happen.</p>
+</div>
+
+<h2 class="head">6 · Validation and transformation</h2>
+<p>The validation layers: syntactic (is this a valid email, phone, date), semantic (a birthdate can't be in the future), and type validation. Client-side versus server-side, and why server-side is the real security boundary. Transformation concerns like type casting, date normalisation and lowercasing emails. Sanitisation, relational validation (password and confirmation matching), conditional and chained validation, and handling errors gracefully with meaningful messages, aggregated errors, and no leaking of internals.</p>
+
+<h2 class="head">7 · Middlewares</h2>
+<p>What middleware is and where it sits in the request lifecycle, how chains and ordering work (logging → auth → validation → routing → error handling), how the "next" function works, and how middleware can short-circuit a request. Common types: security headers, CORS, CSRF protection, rate limiting, auth, logging and observability, error formatting, compression, and body parsing including multipart uploads. Plus ordering and performance practices.</p>
+
+<h2 class="head">8 · Request context</h2>
+<p>The request-scoped metadata flowing through middleware, controllers and services. It is temporary state tied to one request lifecycle. What lives there (HTTP metadata, user info injected during auth, trace IDs, cached permission checks), the use cases (auth, rate limiting, tracing, logging), how it interacts with middleware, timeout handling, and keeping it lightweight enough to avoid memory leaks and tight coupling.</p>
+</section>
+
+<!-- ========== ARC D ========== -->
+<section>
+<div class="part-rule"><span>Arc D · shaping the application</span></div>
+
+<h2 class="head">9 · Handlers, controllers and services</h2>
+<p>The MVC-style breakdown of responsibilities, how middleware removes duplicate logic across handlers, and how to centralise error handling so success and error response formats stay consistent.</p>
+
+<h2 class="head">10 · CRUD deep dive</h2>
+<p>How CRUD maps onto HTTP methods and status codes (POST → 201/400, GET for single and list resources, PUT and PATCH for updates, DELETE for removal). Pagination, search, sorting and filtering. Plus the practices: strict validation, consistent formatting, limiting payload size, redacting sensitive fields, and proper auth handling.</p>
+
+<h2 class="head">11 · RESTful architecture and best practices</h2>
+<p>Designing around resources rather than actions, sticking to HTTP semantics, versioning approaches (URI, header, query string, media type), designing with OpenAPI in mind, content negotiation, meaningful error messages, client-side caching via ETags, and optimising large payloads.</p>
+
+<h2 class="head">12 · Databases</h2>
+<p>Relational versus non-relational and when each applies, ACID properties and the CAP theorem, querying and joins, schema design and indexing, query optimisation, caching and connection pooling. Also data integrity through constraints, transactions and concurrency, ORMs and their trade-offs, and migrations.</p>
+
+<h2 class="head">13 · Business logic layer</h2>
+<p>Where this sits in the request lifecycle: after the presentation layer (routing, middleware, validation, handlers) and before data access. Design principles (separation of concerns, single responsibility, open-closed, dependency inversion), the core components (services, domain models, business rules, business-level validation), service layer design, and how errors should propagate upward.</p>
+</section>
+
+<!-- ========== ARC E ========== -->
+<section>
+<div class="part-rule"><span>Arc E · everything around the request</span></div>
+
+<h2 class="head">14 · Caching</h2>
+<p>Why caching matters and how it differs from database persistence. Types (memory, browser, database, client-side, server-side), strategies (cache-aside, write-through, write-behind, read-through), eviction policies (LRU, LFU, TTL, FIFO), and invalidation approaches (manual, TTL-based, event-based). Multi-level caching, caching for web apps, database query caching, and tracking hit and miss ratios.</p>
+
+<h2 class="head">15 · Transactional emails</h2>
+<p>Common use cases and the anatomy of a transactional email (subject line, preheader, header, body, call to action, footer), and how to personalise content with dynamic data.</p>
+
+<h2 class="head">16 · Task queuing and scheduling</h2>
+<p>Use cases for queuing: sending emails, image processing, third-party API calls, payment processing, webhooks, and offloading heavy batch work so the user isn't left waiting. Scheduling for backups, recurring notifications, data sync and cleanup. Core components (producer, queue, consumer, broker), task dependencies, concurrent task groups, retry and error handling, and prioritisation, such as payment processing ahead of notifications.</p>
+
+<h2 class="head">17 · Elasticsearch</h2>
+<p>Why and how it's used: inverted indexes, term frequency, inverse document frequency, segments and shards. Use cases like type-ahead search, log analytics and full-text search. Creating and managing indexes, query types, relevance scoring, performance tuning (text versus keyword fields, analysers, boosting, pagination), advanced patterns (filtering, aggregation, fuzzy search), Kibana, and practices like explicit field mappings and avoiding wildcard queries.</p>
+
+<h2 class="head">25 · Object storage and large files</h2>
+<p>Common use cases such as S3, handling large files via chunking and streaming, and multipart uploads.</p>
+
+<h2 class="head">26 · Real-time backend systems</h2>
+<p>WebSockets, server-sent events, and pub/sub architecture.</p>
+</section>
+
+<!-- ========== ARC F ========== -->
+<section>
+<div class="part-rule"><span>Arc F · running it in the real world</span></div>
+
+<h2 class="head">18 · Error handling</h2>
+<p>Categories of errors (syntax, runtime, logical) and strategies (fail-safe, fail-fast, graceful degradation, prevention). Catching errors early, avoiding silent failures, custom error types, logging with stack traces, global handlers, user-facing messages that are actionable without leaking internals, and monitoring tools like Sentry and the ELK stack.</p>
+
+<h2 class="head">19 · Config management</h2>
+<p>Separating environment-specific settings from application logic: managing environments, safely handling sensitive values (API keys, database passwords, certificates), and toggling features without redeploying. Types of config (static, dynamic, sensitive), sources (env files, JSON, YAML), and the trade-offs between environment variables, CLI flags and static files.</p>
+
+<h2 class="head">20 · Logging, monitoring and observability</h2>
+<p>The distinctions between logging, tracing, monitoring and observability. Logging types (system, application, access, security) and levels, structured versus unstructured logs, and practices like centralised logging, rotation and retention, contextual logs, and never logging sensitive data. Monitoring types (infrastructure, APM, uptime), tools like Prometheus and Grafana, and alerting that avoids fatigue. Plus observability's three pillars (logs, metrics, traces) and the compliance side of log management.</p>
+
+<h2 class="head">21 · Graceful shutdown</h2>
+<p>Why it matters during restarts, autoscaling, microservice updates and long-running jobs, and how it works mechanically: signal handling (SIGTERM and SIGKILL) and the shutdown sequence: stop accepting new requests, finish in-flight ones, close external connections, terminate.</p>
+
+<h2 class="head">23 · Scaling and performance</h2>
+<p>Performance metrics (response time, resource utilisation) and bottleneck identification. Database optimisation covers avoiding N+1 queries, proper joins, lazy loading and indexing hot fields, plus batch processing, avoiding memory leaks, reducing network overhead via compression, and profiling. Practices: clear code over premature optimisation, modular systems, graceful degradation under load, and offloading non-critical work.</p>
+
+<h2 class="head">24 · Concurrency and parallelism</h2>
+<p>The distinction between the two: concurrency for I/O-bound work, parallelism for CPU-bound work.</p>
+
+<h2 class="head">27 · Testing and code quality</h2>
+<p>Testing types: unit, integration, end-to-end, functional, regression, performance, load and stress, user acceptance, and security testing. Test-driven development, automating tests in CI/CD, linting and formatting, and quality metrics like cyclomatic complexity and maintainability index.</p>
+</section>
+
+<!-- ========== SECURITY ========== -->
+<section>
+<div class="part-rule"><span>The spine · runs through everything</span></div>
+
+<h2 class="head">22 · Security</h2>
+<p>Common attack vectors (SQL and NoSQL injection, XSS, CSRF, broken auth, insecure deserialization) and secure design principles: least privilege, defense in depth, fail-secure defaults, separation of duties, security by design. Input validation and sanitisation, rate limiting, content security policy, CORS, same-site cookies, and event monitoring.</p>
+
+<div class="sec">
+<p class="tag">Why this has a number but isn't really a chapter</p>
+<p>Listing it as §22 is a convenience. In practice it belongs everywhere: injection is a §6 validation problem and a §12 database problem, CSRF is a §5 auth problem and a §7 middleware problem, and information disclosure is a §18 error-handling problem. Every post in this series ends with where the thing breaks, because a vulnerability list you can recite is not the same as knowing where the risk lives in <em>your</em> architecture.</p>
+</div>
+</section>
+
+<!-- ========== ARC G ========== -->
+<section>
+<div class="part-rule"><span>Arc G · standards and delivery</span></div>
+
+<h2 class="head">28 · The 12-factor app</h2>
+<p>A set of foundational principles for building maintainable, deployable applications.</p>
+
+<h2 class="head">29 · OpenAPI standards</h2>
+<p>Why standardisation matters for documentation, automation and the tooling ecosystem: Swagger, Redoc, Postman. The history from Swagger to OpenAPI, active spec versions, and core document structure including metadata, paths, components, security definitions and responses. Plus features in 3.0 and 3.1, tooling, and API-first development where you write the spec before the implementation.</p>
+
+<h2 class="head">30 · Webhooks</h2>
+<p>Use cases like notifications and third-party integrations. Webhooks versus polling: server-initiated push against client-initiated pull. Key components (webhook URL, event triggers, payload, HTTP method, response handling), practices (signature verification, HTTPS, retry logic, logging), testing with tools like ngrok, and real examples from Stripe, GitHub, Slack, Discord and Twilio.</p>
+
+<h2 class="head">31 · DevOps for backend engineers</h2>
+<p>Continuous integration, delivery and deployment. Practices including infrastructure as code, config management and version control. Tooling: Docker for containers, Kubernetes for orchestration, CI/CD pipelines, scaling approaches (horizontal versus vertical), and deployment strategies like blue-green and rolling.</p>
+</section>
+
+<footer>
+<div class="nextprev">
+<a href="./01-why-this-blog-exists.html"><span class="lbl">← PREVIOUS</span><span class="ttl">Why this blog exists</span></a>
+<a href="./03-tracing-a-request.html"><span class="lbl">NEXT →</span><span class="ttl">Tracing a request from a browser to a process</span></a>
+</div>
+<p>Backend From First Principles · a notebook, made public.</p>
+</footer>
+
+</div>
+</body>
+</html>

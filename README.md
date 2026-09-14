@@ -119,9 +119,9 @@ Both `kind: "Writeup"` and `kind: "Note"` are applied automatically by
 
 ## Design notes
 
-Section format is borrowed from hamidatb.github.io — eyebrow over a large
-heading, alternating vertical timeline, tag-carrying project cards — but
-rendered in a white Apple-ish palette rather than that site's dark theme.
+Eyebrow over a large
+heading, alternating vertical timeline, tag-carrying project cards, 
+rendered in a white Apple-ish palette.
 
 White base, one accent blue plus four tag hues, hairline rules, Geist.
 Motion is deliberate and limited: the hero arrival, a scroll-reveal rise,
@@ -129,8 +129,6 @@ timeline cards entering from the side they sit on, and hover states. Every
 one is disabled under `prefers-reduced-motion`, and the page is complete
 with JavaScript off (including the nav, which falls back to plain
 anchors).
-
-Keep it that way. No dark mode — the site is committed to the light palette.
 
 ## Local preview (optional)
 

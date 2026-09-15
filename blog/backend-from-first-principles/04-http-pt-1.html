@@ -1,0 +1,1490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Understanding HTTP, part one — Backend From First Principles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF1F4; --card:#FFF;
+  --ink:#16202B; --ink-soft:#53616F; --ink-faint:#8695A3;
+  --rule:#CBD4DC; --rule-soft:#DDE3E9;
+  --teal:#0E6E7E; --teal-deep:#0A4F5B; --teal-wash:#DCEAEC;
+  --amber:#9C4A18; --amber-wash:#F6E8DE;
+  --green:#2D7D5A; --green-wash:#DCEBE3;
+  --red:#B04A3F; --red-wash:#F7E3E0;
+  --violet:#5B4B8A; --violet-wash:#E4E0EF;
+  --term:#131C25;
+  --measure:70ch;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:17px;line-height:1.65;
+  -webkit-font-smoothing:antialiased}
+.shell{max-width:1180px;margin:0 auto;padding:0 28px}
+
+.serieshead{display:flex;align-items:center;gap:14px;padding:26px 0 0;text-decoration:none}
+.serieshead .dot{width:7px;height:7px;background:var(--teal);border-radius:50%}
+.serieshead span{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;color:var(--ink-faint)}
+.serieshead:hover span{color:var(--teal)}
+
+.mast{border-bottom:1px solid var(--rule);padding:48px 0 44px}
+.mast .kicker{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.06em;color:var(--teal);margin:0 0 18px}
+.mast h1{font-family:'IBM Plex Serif',Georgia,serif;font-weight:600;
+  font-size:clamp(34px,5.4vw,58px);line-height:1.06;letter-spacing:-.02em;margin:0 0 20px;max-width:17ch}
+.mast .standfirst{font-family:'IBM Plex Serif',Georgia,serif;font-size:19px;line-height:1.62;
+  color:var(--ink-soft);max-width:58ch;margin:0}
+.mast .standfirst em{color:var(--ink);font-style:italic}
+
+.contents{border:1px solid var(--rule);background:var(--card);padding:26px 30px 30px;margin:38px 0 60px;max-width:540px}
+.contents h2{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.06em;color:var(--ink-faint);margin:0 0 14px;font-weight:500}
+.contents ol{margin:0;padding:0;list-style:none;counter-reset:toc}
+.contents li{counter-increment:toc;border-top:1px solid var(--rule-soft)}
+.contents li:first-child{border-top:none}
+.contents a{display:flex;gap:14px;align-items:baseline;padding:9px 0;text-decoration:none;color:var(--ink)}
+.contents a:hover{color:var(--teal)}
+.contents a::before{content:counter(toc,decimal-leading-zero);font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--teal)}
+
+section{padding:8px 0 60px}
+.part-rule{display:flex;align-items:center;gap:16px;margin:56px 0 26px}
+.part-rule span{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.06em;color:var(--teal);white-space:nowrap}
+.part-rule::after{content:"";height:1px;background:var(--rule);flex:1}
+
+h2.head{font-family:'IBM Plex Serif',Georgia,serif;font-size:clamp(26px,3.4vw,36px);
+  font-weight:600;letter-spacing:-.015em;line-height:1.15;margin:0 0 22px;max-width:24ch}
+h3.sub{font-size:20px;font-weight:600;margin:44px 0 14px;letter-spacing:-.005em}
+h4.minor{font-size:16.5px;font-weight:600;margin:30px 0 10px}
+p{margin:0 0 18px;max-width:var(--measure)}
+ul,ol{max-width:var(--measure);padding-left:22px}
+li{margin-bottom:8px}
+a{color:var(--teal)}
+code{font-family:'IBM Plex Mono',monospace;font-size:.875em;background:#E2E7EC;padding:1px 5px;border-radius:2px}
+
+.hop{display:flex;gap:18px;align-items:flex-start;margin:56px 0 20px}
+.hop-num{flex:0 0 auto;width:44px;height:44px;border:1px solid var(--teal);color:var(--teal);
+  display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:16px}
+.hop-txt h3{font-family:'IBM Plex Serif',Georgia,serif;font-size:27px;font-weight:600;margin:0 0 4px;line-height:1.2}
+.hop-txt p{margin:0;color:var(--ink-soft);font-size:15px;font-family:'IBM Plex Mono',monospace}
+
+figure{margin:34px 0;background:var(--card);border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+figure img{display:block;width:100%;height:auto}
+figcaption{padding:16px 22px 18px;border-top:1px solid var(--rule-soft);font-size:14.5px;line-height:1.55;color:var(--ink-soft)}
+figcaption b{display:block;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.05em;color:var(--teal);font-weight:500;margin-bottom:6px}
+
+.dia{margin:34px 0;background:var(--card);border:1px solid var(--rule);border-radius:3px;padding:26px 24px 20px}
+.dia svg{display:block;width:100%;height:auto}
+.dia .cap{margin:18px 0 0;padding-top:14px;border-top:1px solid var(--rule-soft);
+  font-size:14px;line-height:1.55;color:var(--ink-soft);max-width:none}
+.dia .cap b{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.05em;color:var(--teal);font-weight:500;display:block;margin-bottom:5px}
+
+pre{background:var(--term);color:#D6DEE6;font-family:'IBM Plex Mono',monospace;font-size:12.5px;
+  line-height:1.55;padding:22px 24px;overflow-x:auto;margin:26px 0;border-radius:3px}
+pre b{color:#7FD4C1;font-weight:500}
+pre i{color:#7C8A97;font-style:normal}
+pre u{color:#E8B48A;text-decoration:none}
+pre s{color:#C5A3E0;text-decoration:none}
+
+.tbl{margin:26px 0;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{text-align:left;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.05em;
+  color:var(--ink-faint);font-weight:500;padding:0 16px 9px 0;border-bottom:1px solid var(--rule);white-space:nowrap}
+td{padding:11px 16px 11px 0;border-bottom:1px solid var(--rule-soft);vertical-align:top}
+td code{font-size:12.5px;background:transparent;padding:0;color:var(--teal-deep)}
+tr:last-child td{border-bottom:none}
+
+blockquote{margin:30px 0;padding:2px 0 2px 24px;border-left:2px solid var(--rule);max-width:64ch;
+  font-family:'IBM Plex Serif',Georgia,serif;font-size:18px;line-height:1.6;color:var(--ink-soft);font-style:italic}
+blockquote p{margin:0;max-width:none}
+
+.sec{background:var(--amber-wash);border-left:2px solid var(--amber);padding:20px 24px;margin:30px 0;max-width:var(--measure)}
+.sec .tag{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--amber);margin-bottom:8px}
+.sec p{margin-bottom:12px;font-size:15.5px}
+.sec p:last-child{margin-bottom:0}
+.sec code{background:#EFDECF}
+
+.key{background:var(--teal-wash);border-left:2px solid var(--teal);padding:20px 24px;margin:30px 0;max-width:var(--measure)}
+.key .tag{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--teal-deep);margin-bottom:8px}
+.key p{margin:0;font-size:15.5px}
+.key code{background:#CADFE2}
+
+.annot{border-left:2px solid var(--teal);padding:4px 0 4px 20px;margin:26px 0;max-width:var(--measure)}
+.annot p:last-child{margin-bottom:0}
+.annot .lead{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.05em;color:var(--teal);margin-bottom:10px}
+
+/* ── beginner layer ── */
+.plain{background:var(--card);border:1px solid var(--rule);border-left:2px solid var(--violet);
+  padding:20px 24px;margin:28px 0;max-width:var(--measure)}
+.plain .tag{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--violet);margin-bottom:10px}
+.plain p{margin-bottom:12px;font-size:15.5px}
+.plain p:last-child{margin-bottom:0}
+.plain ul,.plain ol{font-size:15.5px;margin:0 0 12px}
+.plain code{background:#E9E5F3}
+.plain dl{margin:0;font-size:15.5px}
+.plain dt{font-weight:600;margin-top:12px}
+.plain dt:first-child{margin-top:0}
+.plain dd{margin:3px 0 0;color:var(--ink-soft)}
+
+.anal{background:var(--green-wash);border-left:2px solid var(--green);padding:18px 24px;margin:26px 0;max-width:var(--measure)}
+.anal .tag{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--green);margin-bottom:8px}
+.anal p{margin:0;font-size:15.5px}
+.anal code{background:#C9DFD3}
+
+.jargon{margin:26px 0;max-width:var(--measure);border:1px solid var(--rule);background:var(--card)}
+.jargon summary{cursor:pointer;padding:14px 20px;font-family:'IBM Plex Mono',monospace;font-size:12px;
+  letter-spacing:.05em;color:var(--teal);list-style:none}
+.jargon summary::-webkit-details-marker{display:none}
+.jargon summary::before{content:"▸ ";color:var(--teal)}
+.jargon[open] summary::before{content:"▾ "}
+.jargon summary:hover{background:#F6F8F9}
+.jargon .body{padding:4px 20px 18px;border-top:1px solid var(--rule-soft)}
+.jargon dl{margin:0;font-size:15px}
+.jargon dt{font-weight:600;margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:13.5px;color:var(--teal-deep)}
+.jargon dt:first-child{margin-top:12px}
+.jargon dd{margin:4px 0 0;color:var(--ink-soft);max-width:66ch}
+
+.primer{border:1px solid var(--teal);background:var(--card);padding:30px 32px 34px;margin:38px 0 56px}
+.primer h2{font-family:'IBM Plex Serif',Georgia,serif;font-size:28px;font-weight:600;margin:0 0 6px}
+.primer .lede{color:var(--ink-soft);font-size:15.5px;margin:0 0 24px;max-width:62ch}
+.primer h3{font-size:17px;font-weight:600;margin:26px 0 8px}
+.primer p{font-size:15.5px}
+
+footer{border-top:1px solid var(--rule);padding:40px 0 80px;margin-top:40px;font-size:14.5px;color:var(--ink-faint)}
+footer a{text-decoration:none}
+.nextprev{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:26px}
+.nextprev a{display:block;border:1px solid var(--rule);background:var(--card);padding:16px 20px;
+  text-decoration:none;color:var(--ink);flex:1;min-width:240px}
+.nextprev a:hover{border-color:var(--teal)}
+.nextprev .lbl{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.05em;color:var(--teal);display:block;margin-bottom:5px}
+.nextprev .ttl{font-family:'IBM Plex Serif',Georgia,serif;font-size:16.5px;font-weight:600}
+
+@media (max-width:820px){
+  body{font-size:16px}
+  .shell{padding:0 18px}
+  .dia{padding:18px 14px 14px}
+  pre{font-size:11px;padding:16px}
+  .hop{gap:14px}
+  .hop-num{width:38px;height:38px;font-size:14px}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<a class="serieshead" href="./"><span class="dot"></span><span>BACKEND FROM FIRST PRINCIPLES · POST 04</span></a>
+
+<header class="mast">
+  <p class="kicker">Backend from first principles · annotated walkthrough</p>
+  <h1>Understanding HTTP: where it all starts</h1>
+  <p class="standfirst">The two ideas the whole protocol rests on, what a message actually looks like on the wire, why headers exist, what the methods really promise, and the full CORS handshake traced byte by byte. <em>Part one of two.</em></p>
+</header>
+
+<nav class="contents">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#primer">Start here: what a protocol is</a></li>
+    <li><a href="#two">The two core principles</a></li>
+    <li><a href="#stack">What HTTP sits on top of</a></li>
+    <li><a href="#evolution">The evolution of HTTP</a></li>
+    <li><a href="#messages">HTTP messages, line by line</a></li>
+    <li><a href="#headers">Why headers exist, and the five families</a></li>
+    <li><a href="#methods">Methods, intent, and idempotency</a></li>
+    <li><a href="#cors">OPTIONS, the Same-Origin Policy and CORS</a></li>
+    <li><a href="#glossary">Recap and glossary</a></li>
+  </ol>
+</nav>
+
+<blockquote><p>Backend architecture covers a vast range of topics, so discussing every possible component would be overwhelming. Therefore, this overview focuses on core concepts used in approximately 90% of production codebases.</p></blockquote>
+
+<!-- ══════════════ 0 ══════════════ -->
+<section id="primer">
+<div class="part-rule"><span>Zero</span></div>
+<h2 class="head">Start here: what a protocol is</h2>
+
+<p>Post 03 traced a request from a browser to a process and treated the request itself as a sealed envelope. This post opens the envelope. If you're arriving cold, the only thing you strictly need from the previous post is that a <strong>client</strong> asks and a <strong>server</strong> answers, and that they find each other by IP address and port number.</p>
+
+<div class="primer">
+<h2>Six ideas, before anything else</h2>
+<p class="lede">HTTP is not a program, a company or a piece of software. It is an agreement about the shape of text. Everything below follows from that.</p>
+
+<h3>1 · A protocol is an agreed format</h3>
+<p>Two computers that have never met need to exchange data. Neither can ask the other what its conventions are, because asking would itself require a convention. So the format is agreed in advance, written down publicly, and implemented by everyone. <strong>HTTP</strong> — HyperText Transfer Protocol — is that written-down agreement for the web. A browser made by Google and a server written by a stranger interoperate perfectly because both read the same document.</p>
+
+<h3>2 · HTTP is just text</h3>
+<p>This surprises people. An HTTP request in its classic form is plain readable text: a first line, some labelled lines, a blank line, and optionally a body. You could type one by hand. Later versions compress it into binary for speed, but the <em>meaning</em> is still that text — every diagram in this post shows the readable form.</p>
+
+<h3>3 · Request and response</h3>
+<p>One exchange, always in that order, always started by the client. The client's message is the <strong>request</strong>; the server's is the <strong>response</strong>. A single web page triggers dozens of these.</p>
+
+<h3>4 · Headers and body</h3>
+<p><strong>Headers</strong> are labelled metadata lines — <code>Name: value</code>, one per line. The <strong>body</strong> is the payload underneath. A single blank line separates them, and that blank line is load-bearing: it is literally how the receiver knows the headers have ended.</p>
+
+<h3>5 · Method, path, status</h3>
+<p>Every request begins with a <strong>method</strong> (what kind of action: <code>GET</code>, <code>POST</code>…) and a <strong>path</strong> (which resource: <code>/api/users/12345</code>). Every response begins with a <strong>status code</strong> (how it went: <code>200</code>, <code>404</code>, <code>500</code>). Those three fields carry most of the meaning of most exchanges.</p>
+
+<h3>6 · Resource</h3>
+<p>The generic word for "the thing being asked about" — a page, an image, a user record, a search result. HTTP deliberately avoids saying what a resource <em>is</em>; it only defines how you refer to one (a path) and what you may ask about it (a method).</p>
+</div>
+
+<div class="anal">
+<p class="tag">The analogy this post runs on</p>
+<p>HTTP is a standardised paper form. The top line says what you want and what you want done with it. Below that, a block of labelled fields about you and your preferences. Then a blank line meaning <em>end of form</em>. Then, if you're submitting something rather than requesting it, an attachment. The clerk sends back an identical-looking form: a result code at the top, labelled fields, blank line, attachment. Nothing more exotic than that is happening, ever.</p>
+</div>
+</section>
+
+<!-- ══════════════ 1 ══════════════ -->
+<section id="two">
+<div class="part-rule"><span>One</span></div>
+<h2 class="head">The two core principles</h2>
+
+<blockquote><p>The HTTP protocol serves as the primary medium through which web browsers and servers exchange data. Although various communication protocols exist, HTTP remains the most widely adopted standard for client-server interaction.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 300" role="img" aria-label="HTTP as the medium between client and server">
+<defs><marker id="b1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<ellipse cx="380" cy="62" rx="150" ry="48" fill="#F7E3E0" stroke="#0E6E7E" stroke-width="1.8"/>
+<text x="380" y="58" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="28" font-weight="600" fill="#B04A3F" letter-spacing="2">HTTP</text>
+<text x="380" y="82" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#53616F">the agreed format of the conversation</text>
+
+<!-- client -->
+<rect x="90" y="176" width="150" height="82" rx="4" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.8"/>
+<text x="165" y="206" text-anchor="middle" font-family="IBM Plex Sans" font-size="16" font-weight="600" fill="#16202B">CLIENT</text>
+<text x="165" y="226" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#2D7D5A">browser · mobile app</text>
+<text x="165" y="243" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#2D7D5A">always speaks first</text>
+
+<!-- server -->
+<rect x="520" y="176" width="150" height="82" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.8"/>
+<text x="595" y="206" text-anchor="middle" font-family="IBM Plex Sans" font-size="16" font-weight="600" fill="#16202B">SERVER</text>
+<text x="595" y="226" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#0A4F5B">listens · processes</text>
+<text x="595" y="243" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#0A4F5B">never initiates</text>
+
+<!-- crossed arrows through the cloud -->
+<line x1="240" y1="192" x2="520" y2="120" stroke="#0E6E7E" stroke-width="1.6" marker-end="url(#b1)"/>
+<line x1="520" y1="212" x2="240" y2="132" stroke="#8695A3" stroke-width="1.6" marker-end="url(#b1)"/>
+<text x="300" y="150" font-family="IBM Plex Mono, monospace" font-size="11" fill="#0E6E7E">request</text>
+<text x="420" y="176" font-family="IBM Plex Mono, monospace" font-size="11" fill="#8695A3">response</text>
+
+<line x1="16" y1="278" x2="744" y2="278" stroke="#DDE3E9"/>
+<text x="16" y="296" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">Two machines, one shared rulebook. Neither had to be told the other's conventions — the conventions are public.</text>
+</svg>
+<p class="cap"><b>The opening sketch, redrawn</b>The cloud is not a network or a place. It is the protocol itself: the set of rules both ends already agreed to before the conversation started.</p>
+</div>
+
+<div class="dia">
+<svg viewBox="0 0 760 180" role="img" aria-label="The two defining properties of HTTP">
+<rect x="60" y="24" width="300" height="120" rx="5" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.6"/>
+<text x="90" y="72" font-family="IBM Plex Sans" font-size="26" font-weight="600" fill="#16202B">1. Stateless</text>
+<text x="90" y="100" font-family="IBM Plex Sans" font-size="13" fill="#0A4F5B">the server remembers nothing</text>
+<text x="90" y="120" font-family="IBM Plex Sans" font-size="13" fill="#0A4F5B">between one request and the next</text>
+
+<rect x="400" y="24" width="300" height="120" rx="5" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.6"/>
+<text x="430" y="72" font-family="IBM Plex Sans" font-size="26" font-weight="600" fill="#16202B">2. Client–server</text>
+<text x="430" y="100" font-family="IBM Plex Sans" font-size="13" fill="#5B4B8A">the client always initiates;</text>
+<text x="430" y="120" font-family="IBM Plex Sans" font-size="13" fill="#5B4B8A">the server only ever replies</text>
+</svg>
+<p class="cap"><b>Everything else is consequence</b>Two sentences. Nearly every design decision, limitation and workaround in web development traces back to one of them.</p>
+</div>
+
+<div class="hop"><div class="hop-num">01</div><div class="hop-txt"><h3>Statelessness</h3><p>the server has amnesia by design</p></div></div>
+
+<blockquote><p>Statelessness means the server retains no memory of past client interactions. Every HTTP request must be self-contained, carrying all metadata — such as headers, URLs, and methods — required for processing. Once a server responds to a request, it immediately forgets the transaction and treats subsequent requests as completely independent events.</p></blockquote>
+
+<div class="plain">
+<p class="tag">What "state" means, and why forgetting is deliberate</p>
+<p><strong>State</strong> is remembered context — the accumulated facts about an ongoing interaction. "You're logged in as Ada, you have three items in your basket, you're on step two of checkout." A <strong>stateful</strong> system holds that in memory for you. A <strong>stateless</strong> one does not.</p>
+<p><strong>Self-contained</strong> is the key word. Because the server has forgotten you, every single request has to re-introduce itself from scratch: who you are, what you want, what formats you accept. Nothing can be implied by what you said a moment ago, because from the server's point of view there was no moment ago.</p>
+<p>This feels wasteful, and it is — the same authentication token is re-sent on every request, forever. The trade is deliberate, and section one's next diagram shows what you buy with it.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>A hotel concierge with perfect amnesia. Every time you approach the desk you must state your name, your room number and produce your key card — even if you spoke thirty seconds ago. Infuriating for a human, but it means any of the twenty concierges can serve you interchangeably, none of them needs to hand over notes at shift change, and if one faints mid-sentence you simply walk to the next desk and repeat yourself. That's the entire bargain.</p>
+</div>
+
+<div class="dia">
+<svg viewBox="0 0 760 320" role="img" aria-label="Stateless request handling and what it buys you">
+<defs><marker id="b2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#8695A3" letter-spacing="0.5">THREE REQUESTS FROM THE SAME PERSON</text>
+
+<rect x="16" y="34" width="210" height="52" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="30" y="54" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#16202B">GET /profile</text>
+<text x="30" y="70" font-family="IBM Plex Mono, monospace" font-size="10" fill="#5B4B8A">Authorization: Bearer eyJ…</text>
+<text x="30" y="82" font-family="IBM Plex Sans" font-size="10" fill="#8695A3">"hello, I am Ada"</text>
+
+<rect x="16" y="96" width="210" height="52" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="30" y="116" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#16202B">GET /orders</text>
+<text x="30" y="132" font-family="IBM Plex Mono, monospace" font-size="10" fill="#5B4B8A">Authorization: Bearer eyJ…</text>
+<text x="30" y="144" font-family="IBM Plex Sans" font-size="10" fill="#8695A3">"hello, I am Ada" — again</text>
+
+<rect x="16" y="158" width="210" height="52" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="30" y="178" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#16202B">POST /orders</text>
+<text x="30" y="194" font-family="IBM Plex Mono, monospace" font-size="10" fill="#5B4B8A">Authorization: Bearer eyJ…</text>
+<text x="30" y="206" font-family="IBM Plex Sans" font-size="10" fill="#8695A3">"hello, I am Ada" — still</text>
+
+<line x1="230" y1="60" x2="292" y2="86" stroke="#5B4B8A" stroke-width="1.3" marker-end="url(#b2)"/>
+<line x1="230" y1="122" x2="292" y2="122" stroke="#5B4B8A" stroke-width="1.3" marker-end="url(#b2)"/>
+<line x1="230" y1="184" x2="292" y2="158" stroke="#5B4B8A" stroke-width="1.3" marker-end="url(#b2)"/>
+
+<rect x="294" y="66" width="130" height="112" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.6"/>
+<text x="359" y="100" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">any server</text>
+<text x="359" y="122" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#0A4F5B">holds no memory</text>
+<text x="359" y="140" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#0A4F5B">of any of them</text>
+<text x="359" y="162" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#8695A3">reads · answers · forgets</text>
+
+<line x1="426" y1="122" x2="470" y2="122" stroke="#2D7D5A" stroke-width="1.6" marker-end="url(#b2)"/>
+
+<text x="474" y="44" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#2D7D5A" letter-spacing="0.5">WHAT THAT BUYS YOU</text>
+<rect x="474" y="56" width="270" height="40" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="488" y="72" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">simplicity</text>
+<text x="488" y="88" font-family="IBM Plex Sans" font-size="11" fill="#2D7D5A">no per-user memory to allocate or expire</text>
+
+<rect x="474" y="102" width="270" height="40" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="488" y="118" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">horizontal scalability</text>
+<text x="488" y="134" font-family="IBM Plex Sans" font-size="11" fill="#2D7D5A">any request can go to any machine</text>
+
+<rect x="474" y="148" width="270" height="40" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="488" y="164" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">resilience</text>
+<text x="488" y="180" font-family="IBM Plex Sans" font-size="11" fill="#2D7D5A">a crash corrupts no one's session</text>
+
+<line x1="16" y1="212" x2="744" y2="212" stroke="#DDE3E9"/>
+<text x="16" y="234" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#9C4A18" letter-spacing="0.5">AND WHAT IT COSTS — THE STATE HAS TO LIVE SOMEWHERE</text>
+<rect x="16" y="246" width="228" height="56" rx="3" fill="#F6E8DE" stroke="#9C4A18"/>
+<text x="130" y="268" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#16202B">cookies</text>
+<text x="130" y="287" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#9C4A18">browser re-sends automatically</text>
+<rect x="266" y="246" width="228" height="56" rx="3" fill="#F6E8DE" stroke="#9C4A18"/>
+<text x="380" y="268" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#16202B">sessions</text>
+<text x="380" y="287" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#9C4A18">an ID pointing at a shared store</text>
+<rect x="516" y="246" width="228" height="56" rx="3" fill="#F6E8DE" stroke="#9C4A18"/>
+<text x="630" y="268" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#16202B">JWTs</text>
+<text x="630" y="287" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#9C4A18">signed token carrying its own claims</text>
+</svg>
+<p class="cap"><b>Statelessness, its payoff and its bill</b>The protocol refuses to remember, so a <em>state management layer</em> is bolted on top. Every login you have ever used is that layer, not HTTP itself.</p>
+</div>
+
+<div class="plain">
+<p class="tag">The three state mechanisms, since they're easy to confuse</p>
+<dl>
+<dt>Cookie</dt>
+<dd>A small piece of data the server hands the browser, which the browser then attaches to every subsequent request to that site, automatically and forever (until it expires). The automation is the point — and also the reason CSRF attacks work, as section seven explains.</dd>
+<dt>Session</dt>
+<dd>The cookie holds only a meaningless ID; the actual facts live server-side in a shared store the servers all read. Easy to revoke instantly. Costs a lookup on every request, and the store becomes something all your machines depend on.</dd>
+<dt>JWT — JSON Web Token</dt>
+<dd>"JAY-wot." The token itself carries the facts (user ID, role, expiry) plus a cryptographic signature proving the server issued it and nobody edited it. No lookup needed — which is what makes it fit the stateless model so neatly, and also means you cannot easily un-issue one before it expires.</dd>
+</dl>
+<p>Note that a JWT is <strong>signed, not encrypted</strong>: anyone holding one can read its contents. The signature proves authenticity, not secrecy. Putting anything private inside one is a classic mistake.</p>
+</div>
+
+<div class="sec">
+<p class="tag">Security note · statelessness cuts both ways</p>
+<p>Because identity is re-asserted on every request, the credential is in flight constantly — which is why HTTPS is non-negotiable and why token theft is so valuable to an attacker. A stolen session cookie or JWT <em>is</em> the user, with no further checks, until it expires.</p>
+<p>It's also why <strong>logout is harder than it looks</strong>. With server-side sessions you delete the record and it's over. With self-contained JWTs there is nothing to delete — the token stays valid until its expiry regardless of what your app thinks. Real systems answer this with short lifetimes plus a refresh mechanism, or a revocation list, which quietly reintroduces the state you were avoiding.</p>
+</div>
+
+<div class="hop"><div class="hop-num">02</div><div class="hop-txt"><h3>The client–server model</h3><p>one side asks, one side answers, never the reverse</p></div></div>
+
+<blockquote><p>The second core idea is the client-server architecture, where communication is always initiated by the client. The client (typically a browser or mobile application) sends a request specifying the desired resource, headers, and payload. The server listens for incoming connections, processes the request, and returns an appropriate response such as HTML, JSON, or media files.</p></blockquote>
+
+<div class="plain">
+<p class="tag">The consequence people don't expect</p>
+<p>The server cannot start a conversation. Ever. It has no way to say "by the way, you have a new message" — it can only answer questions it was asked. A server that wanted to notify you would have to wait, silently, for you to happen to ask.</p>
+<p>This is a genuine limitation of HTTP, not an implementation detail, and it spawned an entire family of workarounds: <strong>polling</strong> (ask every few seconds, wastefully), <strong>long polling</strong> (ask, and let the server hold the line open until it has something to say), <strong>Server-Sent Events</strong> (one long-lived response the server dribbles data into), and <strong>WebSockets</strong> (abandon the request–response shape entirely and keep a two-way line open — the protocol named in post 03).</p>
+<p>Every live-updating interface you have used is one of those four, working around a rule written into HTTP in 1991.</p>
+</div>
+
+<div class="dia">
+<svg viewBox="0 0 760 240" role="img" aria-label="The server cannot speak first, and the four workarounds">
+<defs><marker id="b3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<rect x="40" y="26" width="120" height="36" rx="4" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="100" y="49" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">client</text>
+<rect x="420" y="26" width="120" height="36" rx="4" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="480" y="49" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">server</text>
+
+<line x1="164" y1="44" x2="414" y2="44" stroke="#2D7D5A" stroke-width="1.6" marker-end="url(#b3)"/>
+<text x="289" y="36" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#2D7D5A">allowed — the client asks</text>
+
+<line x1="414" y1="80" x2="164" y2="80" stroke="#8695A3" stroke-width="1.6" marker-end="url(#b3)"/>
+<text x="289" y="72" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">allowed — but only as a reply</text>
+
+<line x1="414" y1="116" x2="164" y2="116" stroke="#B04A3F" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#b3)"/>
+<text x="289" y="108" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" font-weight="600" fill="#B04A3F">impossible — the server cannot speak first</text>
+<line x1="276" y1="106" x2="302" y2="126" stroke="#B04A3F" stroke-width="1.8"/>
+<line x1="302" y1="106" x2="276" y2="126" stroke="#B04A3F" stroke-width="1.8"/>
+
+<line x1="16" y1="146" x2="744" y2="146" stroke="#DDE3E9"/>
+<text x="16" y="168" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#5B4B8A" letter-spacing="0.5">SO WE WORK AROUND IT — FOUR WAYS</text>
+
+<rect x="16" y="180" width="170" height="50" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="101" y="200" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">polling</text>
+<text x="101" y="218" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#5B4B8A">"anything yet?" ×1000</text>
+
+<rect x="202" y="180" width="170" height="50" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="287" y="200" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">long polling</text>
+<text x="287" y="218" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#5B4B8A">ask, then wait patiently</text>
+
+<rect x="388" y="180" width="170" height="50" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="473" y="200" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">server-sent events</text>
+<text x="473" y="218" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#5B4B8A">one endless response</text>
+
+<rect x="574" y="180" width="170" height="50" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="659" y="200" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">WebSockets</text>
+<text x="659" y="218" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#2D7D5A">leave HTTP behind</text>
+</svg>
+<p class="cap"><b>One rule, four industries' worth of workarounds</b>Notifications, live scores, collaborative documents and chat all exist in spite of this constraint rather than because of any feature of HTTP.</p>
+</div>
+</section>
+
+<!-- ══════════════ 2 ══════════════ -->
+<section id="stack">
+<div class="part-rule"><span>Two</span></div>
+<h2 class="head">What HTTP sits on top of</h2>
+
+<blockquote><p>In general backend development, HTTP and HTTPS are conceptually interchangeable, as HTTPS simply adds an encryption and identity layer (TLS) over standard HTTP. Before exchanging data, the client and server must establish an underlying network transport connection. HTTP relies primarily on TCP to guarantee reliable, ordered data delivery without packet loss.</p></blockquote>
+
+<div class="plain">
+<p class="tag">"Layer" — the idea underneath the diagram below</p>
+<p>Networking is built as a stack of layers, each solving one problem and assuming the layer beneath already solved its own. HTTP gets to say "send this text to that server" without knowing anything about cables, routing or lost packets, because four layers below it have quietly handled all of that.</p>
+<p>The value is that each layer can be swapped independently. HTTP doesn't change when you move from ethernet to wifi to 5G. And — as section three shows — HTTP/3 swapped out the transport layer beneath it without the shape of the messages changing at all.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>Posting a letter. You write the words (application layer). An envelope and address system get it to the right building (network layer). A courier company guarantees it arrives, in order, and re-sends anything lost (transport layer). Vans and roads physically move it (physical layer). You never think about the vans. If the courier switched from vans to bicycles, your letter would be unaffected — and that is exactly what HTTP/3 did.</p>
+</div>
+
+<div class="dia">
+<svg viewBox="0 0 760 420" role="img" aria-label="The seven OSI layers with HTTP at layer seven">
+<defs><marker id="b4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="380" y="26" text-anchor="middle" font-family="IBM Plex Sans" font-size="17" font-weight="600" fill="#0E6E7E">The 7 Layers of OSI</text>
+
+<text x="90" y="56" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#0E6E7E">Transmit</text>
+<text x="90" y="72" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#0E6E7E">data</text>
+<line x1="90" y1="84" x2="90" y2="342" stroke="#0E6E7E" stroke-width="6" marker-end="url(#b4)"/>
+
+<text x="670" y="56" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#9C4A18">Receive</text>
+<text x="670" y="72" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#9C4A18">data</text>
+<line x1="670" y1="342" x2="670" y2="84" stroke="#9C4A18" stroke-width="6" marker-end="url(#b4)"/>
+
+<rect x="250" y="80" width="260" height="34" rx="16" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.8"/>
+<text x="380" y="102" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">Application (Layer 7)</text>
+<text x="524" y="97" font-family="IBM Plex Mono, monospace" font-size="11" fill="#0E6E7E">HTTP lives here</text>
+<text x="524" y="111" font-family="IBM Plex Sans" font-size="10.5" fill="#8695A3">also DNS, SMTP, SSH</text>
+
+<rect x="238" y="122" width="284" height="34" rx="16" fill="#F6E8DE" stroke="#CBD4DC"/>
+<text x="380" y="144" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" fill="#16202B">Presentation (Layer 6)</text>
+<text x="536" y="144" font-family="IBM Plex Sans" font-size="10.5" fill="#8695A3">encoding, compression</text>
+
+<rect x="226" y="164" width="308" height="34" rx="16" fill="#EDEDE6" stroke="#CBD4DC"/>
+<text x="380" y="186" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" fill="#16202B">Session (Layer 5)</text>
+<text x="548" y="186" font-family="IBM Plex Sans" font-size="10.5" fill="#8695A3">TLS sits around here</text>
+
+<rect x="214" y="206" width="332" height="34" rx="16" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.5"/>
+<text x="380" y="228" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">Transport (Layer 4)</text>
+<text x="560" y="228" font-family="IBM Plex Mono, monospace" font-size="11" fill="#2D7D5A">TCP · UDP · ports</text>
+
+<rect x="202" y="248" width="356" height="34" rx="16" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.5"/>
+<text x="380" y="270" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">Network (Layer 3)</text>
+<text x="572" y="270" font-family="IBM Plex Mono, monospace" font-size="11" fill="#5B4B8A">IP addresses</text>
+
+<rect x="190" y="290" width="380" height="34" rx="16" fill="#F7E3E0" stroke="#CBD4DC"/>
+<text x="380" y="312" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" fill="#16202B">Data Link (Layer 2)</text>
+<text x="584" y="312" font-family="IBM Plex Sans" font-size="10.5" fill="#8695A3">ethernet, wifi frames</text>
+
+<rect x="140" y="332" width="480" height="34" rx="16" fill="#FFFFFF" stroke="#CBD4DC" stroke-width="1.5"/>
+<text x="380" y="354" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" fill="#53616F">Physical (Layer 1)</text>
+<text x="634" y="354" font-family="IBM Plex Sans" font-size="10.5" fill="#8695A3">cables, radio</text>
+
+<line x1="140" y1="386" x2="620" y2="386" stroke="#CBD4DC" stroke-width="2"/>
+<text x="380" y="406" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#0E6E7E">Physical link</text>
+</svg>
+<p class="cap"><b>The stack, and where HTTP sits</b>Data travels down the stack on the way out and back up on the way in, each layer wrapping and then unwrapping the one above. HTTP occupies only the top rung — everything beneath it is machinery it never has to think about.</p>
+</div>
+
+<div class="plain">
+<p class="tag">OSI, TCP, UDP, and the handshake</p>
+<dl>
+<dt>OSI model</dt>
+<dd>A seven-layer reference diagram from 1984, used as shared vocabulary. Real networks don't map onto it perfectly — TLS famously sits awkwardly between layers 5 and 6 — but when someone says "a layer 7 firewall" or "layer 4 load balancer," this is the chart they mean. Treat it as a map, not a blueprint.</dd>
+<dt>TCP</dt>
+<dd>Transmission Control Protocol. Guarantees your bytes arrive complete and in order, re-sending anything lost. Reliable, and that reliability costs setup time.</dd>
+<dt>UDP</dt>
+<dd>The alternative: fire packets off with no guarantees, no ordering, no re-sends. Faster and simpler. Used where late data is worthless anyway — live video, games — and, as of HTTP/3, as the foundation the web is rebuilt on.</dd>
+<dt>Three-way handshake</dt>
+<dd>How a TCP connection opens. Client says "let's talk" (SYN), server says "agreed, and likewise" (SYN-ACK), client says "confirmed" (ACK). Three messages, so one full round trip before a single useful byte moves. On a connection with 100ms latency, that's 100ms of nothing.</dd>
+<dt>TLS negotiation</dt>
+<dd>Layered on top, adding its own round trips to agree on encryption and check the certificate. Historically this made HTTPS noticeably slower to start than HTTP — a cost later versions of the protocol went to great lengths to claw back.</dd>
+</dl>
+</div>
+
+<div class="dia">
+<svg viewBox="0 0 760 250" role="img" aria-label="The round trips before any HTTP data is sent">
+<defs><marker id="b5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<rect x="50" y="14" width="120" height="30" rx="4" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="110" y="34" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#16202B">client</text>
+<rect x="590" y="14" width="120" height="30" rx="4" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="650" y="34" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#16202B">server</text>
+<line x1="110" y1="48" x2="110" y2="228" stroke="#DDE3E9" stroke-width="1.5"/>
+<line x1="650" y1="48" x2="650" y2="228" stroke="#DDE3E9" stroke-width="1.5"/>
+
+<line x1="116" y1="70" x2="644" y2="70" stroke="#5B4B8A" stroke-width="1.4" marker-end="url(#b5)"/>
+<text x="380" y="63" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#5B4B8A">SYN — "shall we open a connection?"</text>
+<line x1="644" y1="92" x2="116" y2="92" stroke="#5B4B8A" stroke-width="1.4" marker-end="url(#b5)"/>
+<text x="380" y="85" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#5B4B8A">SYN-ACK — "yes, and likewise"</text>
+<line x1="116" y1="114" x2="644" y2="114" stroke="#5B4B8A" stroke-width="1.4" marker-end="url(#b5)"/>
+<text x="380" y="107" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#5B4B8A">ACK — "confirmed"</text>
+<text x="24" y="96" font-family="IBM Plex Mono, monospace" font-size="10" fill="#8695A3" transform="rotate(-90 24 96)">TCP</text>
+
+<line x1="116" y1="146" x2="644" y2="146" stroke="#9C4A18" stroke-width="1.4" marker-end="url(#b5)"/>
+<text x="380" y="139" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#9C4A18">ClientHello — ciphers I support</text>
+<line x1="644" y1="168" x2="116" y2="168" stroke="#9C4A18" stroke-width="1.4" marker-end="url(#b5)"/>
+<text x="380" y="161" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#9C4A18">ServerHello + certificate</text>
+<text x="24" y="172" font-family="IBM Plex Mono, monospace" font-size="10" fill="#8695A3" transform="rotate(-90 24 172)">TLS</text>
+
+<line x1="116" y1="202" x2="644" y2="202" stroke="#2D7D5A" stroke-width="2" marker-end="url(#b5)"/>
+<text x="380" y="195" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" font-weight="600" fill="#2D7D5A">GET /index.html — finally, the actual request</text>
+
+<text x="380" y="232" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#53616F">Several round trips of pure ceremony before one useful byte moves. This latency is what every HTTP version since 1.0 has been fighting.</text>
+</svg>
+<p class="cap"><b>Everything that happens before HTTP says a word</b>Keep this picture in mind for the next section — persistent connections, multiplexing and QUIC are all attacks on this diagram.</p>
+</div>
+</section>
+
+<!-- ══════════════ 3 ══════════════ -->
+<section id="evolution">
+<div class="part-rule"><span>Three</span></div>
+<h2 class="head">The evolution of HTTP</h2>
+
+<div class="dia">
+<svg viewBox="0 0 760 260" role="img" aria-label="The five versions of HTTP on a timeline">
+<text x="16" y="24" font-family="IBM Plex Serif, Georgia, serif" font-size="22" font-weight="600" fill="#16202B">Evolution of HTTP</text>
+<text x="16" y="44" font-family="IBM Plex Sans" font-size="13" fill="#53616F">Where are we?</text>
+
+<line x1="16" y1="196" x2="744" y2="196" stroke="#CBD4DC" stroke-width="1.5"/>
+
+<circle cx="90" cy="196" r="6" fill="#B04A3F"/>
+<text x="90" y="220" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" font-weight="600" fill="#16202B">HTTP/0.9</text>
+<text x="90" y="238" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#8695A3">1991</text>
+<rect x="34" y="150" width="112" height="34" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="90" y="164" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#16202B">one line, one file</text>
+<text x="90" y="177" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#B04A3F">no headers at all</text>
+
+<circle cx="250" cy="196" r="6" fill="#9C4A18"/>
+<text x="250" y="220" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" font-weight="600" fill="#16202B">HTTP/1.0</text>
+<text x="250" y="238" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#8695A3">1996</text>
+<rect x="194" y="132" width="112" height="52" rx="3" fill="#F6E8DE" stroke="#9C4A18"/>
+<text x="250" y="146" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#16202B">headers arrive</text>
+<text x="250" y="159" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#16202B">status codes arrive</text>
+<text x="250" y="176" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#9C4A18">a new TCP connection</text>
+<text x="250" y="188" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#9C4A18" opacity="0">x</text>
+
+<circle cx="410" cy="196" r="6" fill="#0E6E7E"/>
+<text x="410" y="220" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" font-weight="600" fill="#16202B">HTTP/1.1</text>
+<text x="410" y="238" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#8695A3">1997</text>
+<rect x="354" y="114" width="112" height="70" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="410" y="130" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#16202B">persistent connections</text>
+<text x="410" y="144" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#16202B">chunked encoding</text>
+<text x="410" y="158" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#16202B">better caching</text>
+<text x="410" y="176" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#0A4F5B">ran the web for 18 years</text>
+
+<circle cx="570" cy="196" r="6" fill="#5B4B8A"/>
+<text x="570" y="220" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" font-weight="600" fill="#16202B">HTTP/2</text>
+<text x="570" y="238" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#8695A3">2015</text>
+<rect x="514" y="114" width="112" height="70" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="570" y="130" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#16202B">multiplexing</text>
+<text x="570" y="144" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#16202B">binary framing</text>
+<text x="570" y="158" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#16202B">HPACK compression</text>
+<text x="570" y="176" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#5B4B8A">server push</text>
+
+<circle cx="700" cy="196" r="6" fill="#2D7D5A"/>
+<text x="700" y="220" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" font-weight="600" fill="#16202B">HTTP/3</text>
+<text x="700" y="238" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#8695A3">2019</text>
+<rect x="644" y="114" width="112" height="70" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="700" y="130" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#16202B">QUIC over UDP</text>
+<text x="700" y="144" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#16202B">faster setup</text>
+<text x="700" y="162" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#2D7D5A">no head-of-line</text>
+<text x="700" y="174" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#2D7D5A">blocking</text>
+
+<text x="16" y="72" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">Read the arc as one long war on latency. The <tspan font-weight="600">meaning</tspan> of a request barely changes across thirty years —</text>
+<text x="16" y="90" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">methods, headers and status codes are the same. What changes is how many round trips it costs to deliver.</text>
+</svg>
+<p class="cap"><b>Thirty years, one obsession</b>Every version is an answer to "why is this slower than it should be?" — never a change to what a request actually means.</p>
+</div>
+
+<blockquote><p>In HTTP/1.0, every individual request required opening a new TCP connection, which introduced significant latency. HTTP/1.1 introduced persistent connections, allowing multiple request-response cycles over a single TCP connection along with chunked transfer encoding and improved caching.</p></blockquote>
+
+<div class="plain">
+<p class="tag">Persistent connections and chunked encoding</p>
+<p><strong>Persistent connection</strong> (the <code>Connection: keep-alive</code> header from post 03) means: having paid for the handshake once, don't hang up. A page needing forty files pays the setup cost once instead of forty times. In 1.0 the cost was paid every single time, which on a 1996 connection was brutal.</p>
+<p><strong>Chunked transfer encoding</strong> solves a subtler problem. Normally a response says <code>Content-Length: 4096</code> so the receiver knows when it's finished — but that requires knowing the size before you start sending. If the content is being generated on the fly, you don't. Chunked encoding lets the server send pieces, each prefixed with its own length, and a zero-length chunk to signal the end. It is what makes streaming a response possible at all.</p>
+</div>
+
+<blockquote><p>HTTP/2 introduced multiplexing over a single connection, replaced plain text with binary framing, and added HPACK header compression and server push. HTTP/3 transitioned from TCP to the QUIC protocol (built on UDP), reducing latency, accelerating connection setup, and eliminating head-of-line blocking.</p></blockquote>
+
+<div class="plain">
+<p class="tag">The four HTTP/2 words, then the HTTP/3 ones</p>
+<dl>
+<dt>Multiplexing</dt>
+<dd>Many requests in flight simultaneously over one connection, their pieces interleaved and reassembled by an ID. In 1.1, one connection handled one request at a time — so browsers cheated by opening six connections per site, and developers cheated by mashing all their images into one giant sprite file. Multiplexing made both hacks obsolete.</dd>
+<dt>Binary framing</dt>
+<dd>The message is packed into structured binary frames instead of newline-separated text. Less ambiguous to parse, smaller, and faster. The cost: you can no longer read it off the wire with your eyes. The logical content is unchanged — your tools reconstruct the familiar text view.</dd>
+<dt>HPACK compression</dt>
+<dd>Headers repeat enormously — the same <code>User-Agent</code>, the same cookies, on every one of a page's eighty requests. HPACK keeps a shared table of headers already sent so subsequent ones are referenced by a tiny index instead of repeated in full. Note this is a direct tax rebate on statelessness.</dd>
+<dt>Server push</dt>
+<dd>The server pre-emptively sends files it knows you'll ask for next. The one apparent exception to "the server cannot speak first" — but only within a conversation you started. It proved hard to use well and has largely been abandoned in favour of hints telling the browser what to request early.</dd>
+<dt>Head-of-line blocking</dt>
+<dd>HTTP/2 multiplexed at its own level, but TCP underneath still insists on strict ordering: lose one packet and <em>everything</em> behind it waits, even parts belonging to unrelated requests. One dropped packet stalls the lot.</dd>
+<dt>QUIC</dt>
+<dd>The fix, and the reason HTTP/3 abandoned TCP. QUIC is built on UDP — which has no ordering rules to get in the way — and re-implements reliability per-stream, so a lost packet stalls only its own stream. It also folds the TLS handshake into the connection setup, cutting the round trips in the earlier diagram roughly in half.</dd>
+</dl>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>Head-of-line blocking is a single-lane road with a strict no-overtaking rule. One stalled car and the ambulance behind it waits too, however unrelated their journeys. HTTP/2 put more cars on the road; HTTP/3 finally added lanes.</p>
+</div>
+
+<div class="dia">
+<svg viewBox="0 0 760 290" role="img" aria-label="One connection per request versus persistent versus multiplexed">
+<defs><marker id="b6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#B04A3F">HTTP/1.0 — a new connection every time</text>
+<rect x="16" y="30" width="56" height="20" rx="2" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="44" y="44" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.5" fill="#B04A3F">setup</text>
+<rect x="74" y="30" width="46" height="20" rx="2" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="97" y="44" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.5" fill="#2D7D5A">req 1</text>
+<rect x="124" y="30" width="56" height="20" rx="2" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="152" y="44" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.5" fill="#B04A3F">setup</text>
+<rect x="182" y="30" width="46" height="20" rx="2" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="205" y="44" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.5" fill="#2D7D5A">req 2</text>
+<rect x="232" y="30" width="56" height="20" rx="2" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="260" y="44" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.5" fill="#B04A3F">setup</text>
+<rect x="290" y="30" width="46" height="20" rx="2" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="313" y="44" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.5" fill="#2D7D5A">req 3</text>
+<text x="348" y="44" font-family="IBM Plex Sans" font-size="11" fill="#B04A3F">more than half the time is ceremony</text>
+
+<line x1="16" y1="66" x2="744" y2="66" stroke="#DDE3E9"/>
+
+<text x="16" y="86" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#9C4A18">HTTP/1.1 — one connection, but strictly one at a time</text>
+<rect x="16" y="96" width="56" height="20" rx="2" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="44" y="110" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.5" fill="#B04A3F">setup</text>
+<rect x="74" y="96" width="46" height="20" rx="2" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="97" y="110" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.5" fill="#2D7D5A">req 1</text>
+<rect x="122" y="96" width="46" height="20" rx="2" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="145" y="110" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.5" fill="#2D7D5A">req 2</text>
+<rect x="170" y="96" width="46" height="20" rx="2" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="193" y="110" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.5" fill="#2D7D5A">req 3</text>
+<text x="228" y="110" font-family="IBM Plex Sans" font-size="11" fill="#9C4A18">setup paid once — but they queue</text>
+
+<line x1="16" y1="132" x2="744" y2="132" stroke="#DDE3E9"/>
+
+<text x="16" y="152" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#2D7D5A">HTTP/2 — one connection, all at once, interleaved</text>
+<rect x="16" y="162" width="56" height="20" rx="2" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="44" y="176" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.5" fill="#B04A3F">setup</text>
+<rect x="74" y="162" width="24" height="20" rx="2" fill="#DCEBE3" stroke="#2D7D5A"/>
+<rect x="100" y="162" width="24" height="20" rx="2" fill="#E4E0EF" stroke="#5B4B8A"/>
+<rect x="126" y="162" width="24" height="20" rx="2" fill="#DCEAEC" stroke="#0E6E7E"/>
+<rect x="152" y="162" width="24" height="20" rx="2" fill="#DCEBE3" stroke="#2D7D5A"/>
+<rect x="178" y="162" width="24" height="20" rx="2" fill="#DCEAEC" stroke="#0E6E7E"/>
+<rect x="204" y="162" width="24" height="20" rx="2" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="240" y="176" font-family="IBM Plex Sans" font-size="11" fill="#2D7D5A">three requests' frames, woven together and reassembled at the far end</text>
+
+<line x1="16" y1="198" x2="744" y2="198" stroke="#DDE3E9"/>
+
+<text x="16" y="218" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#5B4B8A">…but TCP still enforces order underneath</text>
+<rect x="16" y="228" width="24" height="20" rx="2" fill="#DCEBE3" stroke="#2D7D5A"/>
+<rect x="42" y="228" width="24" height="20" rx="2" fill="#E4E0EF" stroke="#5B4B8A"/>
+<rect x="68" y="228" width="24" height="20" rx="2" fill="#F7E3E0" stroke="#B04A3F" stroke-dasharray="3 2"/>
+<text x="80" y="242" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#B04A3F">✗</text>
+<rect x="94" y="228" width="24" height="20" rx="2" fill="#EDEDE6" stroke="#CBD4DC"/>
+<rect x="120" y="228" width="24" height="20" rx="2" fill="#EDEDE6" stroke="#CBD4DC"/>
+<rect x="146" y="228" width="24" height="20" rx="2" fill="#EDEDE6" stroke="#CBD4DC"/>
+<text x="182" y="242" font-family="IBM Plex Sans" font-size="11" fill="#B04A3F">one lost packet — everything behind it waits, related or not</text>
+<text x="16" y="272" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#2D7D5A">HTTP/3 drops TCP for QUIC so each stream recovers independently. Only the affected one stalls.</text>
+</svg>
+<p class="cap"><b>Four generations of the same picture</b>Watch the red "setup" blocks disappear and the green work blocks pack tighter. That compression <em>is</em> the history of the protocol.</p>
+</div>
+
+<div class="key">
+<p class="tag">Why this matters practically</p>
+<p>You will almost never write code that differs between HTTP/1.1, /2 and /3 — your framework and your reverse proxy handle it. What changes is which performance folklore still applies. Bundling files together, spreading assets across subdomains, and inlining images were all sensible in 2010 and are actively counterproductive over HTTP/2. Advice has a version number attached, even when nobody writes it down.</p>
+</div>
+</section>
+
+<!-- ══════════════ 4 ══════════════ -->
+<section id="messages">
+<div class="part-rule"><span>Four</span></div>
+<h2 class="head">HTTP messages, line by line</h2>
+
+<blockquote><p>HTTP communication consists of two message types: request messages sent by the client and response messages returned by the server. An HTTP request message includes an HTTP method, target URL, protocol version, host header, request headers, and an optional body separated by a blank line.</p></blockquote>
+
+<p>Here is the pair from the slide, verbatim. Read the request first, then the response; the annotations underneath take them apart.</p>
+
+<h3 class="sub">The request</h3>
+
+<pre><b>PUT /api/users/12345 HTTP/1.1</b>
+<u>Host</u>: example.com
+<u>User-Agent</u>: Mozilla/5.0 (Windows NT 10.0; Win64; x64)
+  AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36
+<u>Content-Type</u>: application/json
+<u>Content-Length</u>: 123
+<u>Authorization</u>: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+<u>Accept</u>: application/json
+<u>Accept-Encoding</u>: gzip, deflate, br
+<u>Connection</u>: keep-alive
+<u>Referer</u>: https://example.com/dashboard
+<u>Cookie</u>: sessionId=abc123xyz456; lang=en-US
+<i>
+// a blank line here means: everything before this was headers
+</i>
+<s>{
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john.doe@example.com",
+  "age": 30
+}</s></pre>
+
+<h3 class="sub">The response</h3>
+
+<pre><b>HTTP/1.1 200 OK</b>
+<u>Date</u>: Fri, 20 Sep 2024 12:00:00 GMT
+<u>Content-Type</u>: application/json
+<u>Content-Length</u>: 85
+<u>Server</u>: Apache/2.4.41 (Ubuntu)
+<u>Cache-Control</u>: no-store
+<u>X-Request-ID</u>: abcdef123456
+<u>Strict-Transport-Security</u>: max-age=31536000; includeSubDomains; preload
+<u>Set-Cookie</u>: sessionId=abc123xyz456; Path=/; Secure; HttpOnly
+<u>Vary</u>: Accept-Encoding
+<u>Connection</u>: keep-alive
+<i>
+// a blank line here means: everything before this was headers
+</i>
+<s>{
+  "message": "User updated successfully",
+  "userId": 12345,
+  "status": "success"
+}</s></pre>
+
+<div class="dia">
+<svg viewBox="0 0 760 300" role="img" aria-label="The anatomy of a request and a response">
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="12" fill="#5B4B8A" letter-spacing="0.5">REQUEST</text>
+
+<rect x="16" y="32" width="340" height="40" rx="3" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.5"/>
+<text x="30" y="50" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#16202B">PUT  /api/users/12345  HTTP/1.1</text>
+<text x="30" y="65" font-family="IBM Plex Sans" font-size="10" fill="#5B4B8A">method · path · version — the "start line"</text>
+
+<rect x="16" y="78" width="340" height="86" rx="3" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.5"/>
+<text x="30" y="96" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">headers</text>
+<text x="30" y="113" font-family="IBM Plex Mono, monospace" font-size="10" fill="#0A4F5B">Host · Authorization · Content-Type</text>
+<text x="30" y="128" font-family="IBM Plex Mono, monospace" font-size="10" fill="#0A4F5B">Accept · Cookie · Connection …</text>
+<text x="30" y="148" font-family="IBM Plex Sans" font-size="10.5" fill="#53616F">one Name: value per line, any number of them</text>
+
+<rect x="16" y="170" width="340" height="24" rx="3" fill="#F6E8DE" stroke="#9C4A18" stroke-dasharray="4 3"/>
+<text x="186" y="186" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" font-weight="600" fill="#9C4A18">ONE BLANK LINE — headers end here</text>
+
+<rect x="16" y="200" width="340" height="70" rx="3" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.5"/>
+<text x="30" y="218" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">body</text>
+<text x="30" y="235" font-family="IBM Plex Mono, monospace" font-size="10" fill="#2D7D5A">{ "firstName": "John", … }</text>
+<text x="30" y="255" font-family="IBM Plex Sans" font-size="10.5" fill="#53616F">optional — a GET usually has none</text>
+
+<line x1="380" y1="16" x2="380" y2="286" stroke="#DDE3E9"/>
+
+<text x="404" y="20" font-family="IBM Plex Mono, monospace" font-size="12" fill="#0E6E7E" letter-spacing="0.5">RESPONSE</text>
+
+<rect x="404" y="32" width="340" height="40" rx="3" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.5"/>
+<text x="418" y="50" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#16202B">HTTP/1.1  200  OK</text>
+<text x="418" y="65" font-family="IBM Plex Sans" font-size="10" fill="#0A4F5B">version · status code · reason phrase</text>
+
+<rect x="404" y="78" width="340" height="86" rx="3" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.5"/>
+<text x="418" y="96" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">headers</text>
+<text x="418" y="113" font-family="IBM Plex Mono, monospace" font-size="10" fill="#0A4F5B">Content-Type · Set-Cookie · Server</text>
+<text x="418" y="128" font-family="IBM Plex Mono, monospace" font-size="10" fill="#0A4F5B">Cache-Control · Vary · HSTS …</text>
+<text x="418" y="148" font-family="IBM Plex Sans" font-size="10.5" fill="#53616F">same format, different vocabulary</text>
+
+<rect x="404" y="170" width="340" height="24" rx="3" fill="#F6E8DE" stroke="#9C4A18" stroke-dasharray="4 3"/>
+<text x="574" y="186" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" font-weight="600" fill="#9C4A18">ONE BLANK LINE — headers end here</text>
+
+<rect x="404" y="200" width="340" height="70" rx="3" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.5"/>
+<text x="418" y="218" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">body</text>
+<text x="418" y="235" font-family="IBM Plex Mono, monospace" font-size="10" fill="#2D7D5A">{ "message": "User updated…" }</text>
+<text x="418" y="255" font-family="IBM Plex Sans" font-size="10.5" fill="#53616F">HTML, JSON, an image, or nothing at all</text>
+</svg>
+<p class="cap"><b>Two messages, one identical skeleton</b>Start line, headers, blank line, body. The only structural difference between a request and a response is what the start line contains.</p>
+</div>
+
+<div class="plain">
+<p class="tag">Every line of the request, explained</p>
+<dl>
+<dt><code>PUT /api/users/12345 HTTP/1.1</code></dt>
+<dd>The <strong>start line</strong>. Three fields separated by spaces: what action, on what resource, using what version. <code>PUT</code> means "replace this resource with what I'm sending." <code>/api/users/12345</code> is the path — note it identifies a specific user by ID. Section six covers the methods properly.</dd>
+<dt><code>Host: example.com</code></dt>
+<dd>The one header that is mandatory in HTTP/1.1. This is the field Nginx read in post 03 to decide which site you wanted. The path alone isn't enough, because one machine serves many domains.</dd>
+<dt><code>User-Agent</code></dt>
+<dd>The client describing itself. The absurd string — claiming to be Mozilla, and Safari, and Chrome — is thirty years of compatibility lies fossilised: browsers impersonated each other to avoid being served degraded pages, and nobody dared stop.</dd>
+<dt><code>Content-Type: application/json</code></dt>
+<dd>What the <em>body I am sending</em> is. Without this the server would receive a pile of bytes and have to guess.</dd>
+<dt><code>Content-Length: 123</code></dt>
+<dd>How many bytes the body is, so the receiver knows when it has them all. The alternative is the chunked encoding from section three.</dd>
+<dt><code>Authorization: Bearer eyJ…</code></dt>
+<dd>The credential. <strong>Bearer</strong> is the scheme name and it means exactly what it says: whoever bears this token gets the access, no questions asked about who they are. The <code>eyJ</code> prefix is the giveaway of a JWT — it's what <code>{"</code> becomes in base64 encoding.</dd>
+<dt><code>Accept: application/json</code></dt>
+<dd>What I'd <em>like back</em>. Easy to confuse with <code>Content-Type</code>: Content-Type describes what you're sending, Accept describes what you want returned. This is <strong>content negotiation</strong> — the same URL can serve JSON or HTML depending on who asks.</dd>
+<dt><code>Accept-Encoding: gzip, deflate, br</code></dt>
+<dd>Compression formats the client can decompress. The server picks one and compresses the response, often to a quarter of its size. <code>br</code> is Brotli. This is an invisible, enormous performance win happening on nearly every request you make.</dd>
+<dt><code>Referer: https://example.com/dashboard</code></dt>
+<dd>Which page linked here. Famously misspelled in the 1996 specification and never corrected, because fixing it would break everything. A privacy leak by nature, which is why browsers now trim it.</dd>
+<dt><code>Cookie: sessionId=abc123xyz456; lang=en-US</code></dt>
+<dd>The state layer from section one, riding along automatically. The browser attached this without the page asking — which is precisely the behaviour CORS and CSRF defences exist to contain.</dd>
+</dl>
+</div>
+
+<div class="plain">
+<p class="tag">And the response's less obvious lines</p>
+<dl>
+<dt><code>200 OK</code></dt>
+<dd>The status code plus a human-readable <strong>reason phrase</strong>. Only the number is meaningful to machines; the words are courtesy. The families: <strong>1xx</strong> informational, <strong>2xx</strong> success, <strong>3xx</strong> redirect, <strong>4xx</strong> you made a mistake, <strong>5xx</strong> the server made a mistake. That 4 vs 5 split is the most useful distinction in debugging: it tells you which side to look at.</dd>
+<dt><code>Cache-Control: no-store</code></dt>
+<dd>"Do not save this anywhere, ever." Appropriate here because the response concerns one user's account. Get this wrong on a shared cache and one user's data gets served to another — a real and recurring class of bug.</dd>
+<dt><code>X-Request-ID: abcdef123456</code></dt>
+<dd>A custom header (hence <code>X-</code>) carrying a unique ID for this exchange, so it can be traced across every service and log file it touches. Invaluable at 3am. An example of the extensibility discussed in the next section.</dd>
+<dt><code>Set-Cookie: … Path=/; Secure; HttpOnly</code></dt>
+<dd>The server issuing a cookie. The flags matter more than the value: <strong>Secure</strong> = only ever send this over HTTPS. <strong>HttpOnly</strong> = JavaScript may not read it, only the browser may send it. Together they are the baseline defence for a session cookie, and their absence is a finding.</dd>
+<dt><code>Vary: Accept-Encoding</code></dt>
+<dd>A note to caches: "my answer depends on that request header, so don't reuse this copy for someone who sent a different one." Forgetting <code>Vary</code> is how a cache serves compressed bytes to a client that can't decompress them.</dd>
+</dl>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>The start line is the subject line of an email, the headers are the mail headers you never look at, the blank line is the gap before the message begins, and the body is the message. You have been reading this exact structure your whole life without noticing it.</p>
+</div>
+
+<div class="sec">
+<p class="tag">Security note · the blank line is load-bearing</p>
+<p>The separation between headers and body is defined by that one blank line, and by <code>Content-Length</code> telling the receiver where the body stops. When two servers in a chain — say a proxy and the app behind it — disagree about where one message ends and the next begins, an attacker can smuggle a second request inside the first. This is <strong>HTTP request smuggling</strong>, and it lets you sneak a request past the proxy's security checks entirely.</p>
+<p>It is worth knowing simply as a reminder that parsing is security. A protocol made of text with ambiguous edges has been a source of serious vulnerabilities for thirty years — and is part of why HTTP/2's rigid binary framing is an improvement beyond speed.</p>
+</div>
+</section>
+
+<!-- ══════════════ 5 ══════════════ -->
+<section id="headers">
+<div class="part-rule"><span>Five</span></div>
+<h2 class="head">Why headers exist, and the five families</h2>
+
+<blockquote><p>HTTP headers are key-value pairs transferred in requests and responses to communicate metadata about the message or the connection. Much like the address written on the outside of a shipping package, headers allow intermediaries and endpoints to inspect essential metadata without parsing the entire payload body.</p></blockquote>
+
+<div class="plain">
+<p class="tag">The word doing the work here is "intermediaries"</p>
+<p>An <strong>intermediary</strong> is anything between the two ends: a reverse proxy, a CDN, a corporate filter, a load balancer. A request typically passes through several. None of them should have to open and understand your body to do their job — a cache only needs to know how long to keep something, a proxy only needs to know which server to forward to.</p>
+<p><strong>Metadata</strong> is data about the data. The body is the content; the headers describe it. Keeping them separate is what lets a machine in the middle make a good decision cheaply, by reading a few hundred bytes instead of a few megabytes.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>The shipping label. The courier sorts, routes, prioritises and delivers your parcel using only what's printed outside — weight, destination, "fragile", "perishable". Nobody opens the box. And that's not merely polite: a sorting system that had to unpack every parcel to route it could not exist at scale.</p>
+</div>
+
+<div class="dia">
+<svg viewBox="0 0 760 400" role="img" aria-label="The five families of HTTP headers">
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#8695A3" letter-spacing="0.5">FIVE FAMILIES — GROUPED BY WHAT THEY DESCRIBE</text>
+
+<rect x="16" y="32" width="358" height="150" rx="4" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.5"/>
+<text x="34" y="56" font-family="IBM Plex Sans" font-size="15" font-weight="600" fill="#5B4B8A">Request headers</text>
+<text x="34" y="74" font-family="IBM Plex Sans" font-size="11" fill="#53616F">who I am, what I can handle, what I want</text>
+<text x="48" y="100" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">User-Agent</text>
+<text x="48" y="122" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">Authorization</text>
+<text x="48" y="144" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">Cookie</text>
+<text x="48" y="166" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">Accept</text>
+
+<rect x="386" y="32" width="358" height="150" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.5"/>
+<text x="404" y="56" font-family="IBM Plex Sans" font-size="15" font-weight="600" fill="#0E6E7E">General headers</text>
+<text x="404" y="74" font-family="IBM Plex Sans" font-size="11" fill="#53616F">apply to both directions — transport and caching</text>
+<text x="418" y="100" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">Date</text>
+<text x="418" y="122" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">Cache-Control</text>
+<text x="418" y="144" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">Connection</text>
+
+<rect x="16" y="194" width="358" height="150" rx="4" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.5"/>
+<text x="34" y="218" font-family="IBM Plex Sans" font-size="15" font-weight="600" fill="#2D7D5A">Representation headers</text>
+<text x="34" y="236" font-family="IBM Plex Sans" font-size="11" fill="#53616F">the shape, size and version of the body</text>
+<text x="48" y="262" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">Content-Type</text>
+<text x="48" y="284" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">Content-Length</text>
+<text x="48" y="306" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">Content-Encoding</text>
+<text x="48" y="328" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">ETag</text>
+
+<rect x="386" y="194" width="358" height="150" rx="4" fill="#F7E3E0" stroke="#B04A3F" stroke-width="1.5"/>
+<text x="404" y="218" font-family="IBM Plex Sans" font-size="15" font-weight="600" fill="#B04A3F">Security headers</text>
+<text x="404" y="236" font-family="IBM Plex Sans" font-size="11" fill="#53616F">instructions constraining the browser's behaviour</text>
+<text x="418" y="260" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#16202B">Strict-Transport-Security (HSTS)</text>
+<text x="418" y="280" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#16202B">Content-Security-Policy (CSP)</text>
+<text x="418" y="300" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#16202B">X-Frame-Options</text>
+<text x="418" y="320" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#16202B">X-Content-Type-Options</text>
+<text x="418" y="338" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#16202B">Set-Cookie flags</text>
+
+<rect x="16" y="356" width="358" height="36" rx="4" fill="#F6E8DE" stroke="#9C4A18" stroke-width="1.5"/>
+<text x="195" y="379" text-anchor="middle" font-family="IBM Plex Sans" font-size="15" font-weight="600" fill="#9C4A18">Extensibility</text>
+
+<rect x="386" y="356" width="358" height="36" rx="4" fill="#F6E8DE" stroke="#9C4A18" stroke-width="1.5"/>
+<text x="565" y="379" text-anchor="middle" font-family="IBM Plex Sans" font-size="15" font-weight="600" fill="#9C4A18">Remote control</text>
+</svg>
+<p class="cap"><b>The five slides, collected</b>The grouping is a teaching aid rather than something the protocol enforces — but knowing which family a header belongs to tells you immediately who is meant to read it.</p>
+</div>
+
+<blockquote><p>HTTP extensibility allows custom headers to be added without modifying the core protocol. Headers act as a remote control mechanism, enabling clients to negotiate content formats, authentication states, and caching parameters dynamically with the server.</p></blockquote>
+
+<div class="plain">
+<p class="tag">The last two boxes — "extensibility" and "remote control"</p>
+<p><strong>Extensibility</strong> is the reason HTTP survived thirty years of the web changing beneath it. Anyone may invent a header. Receivers are required to ignore headers they don't recognise, so a new one can be deployed without breaking a single existing client. <code>X-Request-ID</code> was somebody's invention; so were the CORS headers before they were standardised. Most of the modern protocol started as somebody's custom header that caught on.</p>
+<p><strong>Remote control</strong> is the mental model for what headers <em>do</em>. They aren't passive labels — they're knobs each side turns to steer the other's behaviour without any code changing hands. <code>Accept-Encoding</code> tells the server to compress. <code>Cache-Control</code> tells every cache in the path how to behave. <code>Content-Security-Policy</code> restricts what the browser will execute. One end presses a button; the other end obeys.</p>
+</div>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Header</th><th>Family</th><th>What it's actually saying</th></tr></thead>
+<tbody>
+<tr><td><code>User-Agent</code></td><td>request</td><td>"Here's what kind of client I am" — mostly historical fiction now</td></tr>
+<tr><td><code>Authorization</code></td><td>request</td><td>"Here is my credential." Present on every request, because stateless</td></tr>
+<tr><td><code>Accept</code></td><td>request</td><td>"Give it to me in this format if you can"</td></tr>
+<tr><td><code>Date</code></td><td>general</td><td>When the message was generated — used for cache age arithmetic</td></tr>
+<tr><td><code>Cache-Control</code></td><td>general</td><td>"Store this for an hour" / "never store this"</td></tr>
+<tr><td><code>Connection</code></td><td>general</td><td>"Keep the TCP line open" — meaningless in HTTP/2 onward</td></tr>
+<tr><td><code>Content-Type</code></td><td>representation</td><td>"The body is JSON / HTML / a PNG"</td></tr>
+<tr><td><code>Content-Encoding</code></td><td>representation</td><td>"The body is gzip-compressed; decompress before reading"</td></tr>
+<tr><td><code>ETag</code></td><td>representation</td><td>A fingerprint, so next time you can ask "changed?" instead of re-downloading</td></tr>
+<tr><td><code>HSTS</code></td><td>security</td><td>"Never speak to me over plain HTTP again"</td></tr>
+<tr><td><code>CSP</code></td><td>security</td><td>"Only run scripts from these sources" — the main anti-XSS control</td></tr>
+<tr><td><code>X-Frame-Options</code></td><td>security</td><td>"Don't let other sites embed me in a frame" — anti-clickjacking</td></tr>
+<tr><td><code>X-Content-Type-Options</code></td><td>security</td><td><code>nosniff</code>: "believe my Content-Type; don't guess"</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="sec">
+<p class="tag">Security note · why <code>nosniff</code> exists</p>
+<p>Historically, browsers didn't trust <code>Content-Type</code> — they'd peek at the bytes and guess, because so many servers were misconfigured. That guessing is <strong>MIME sniffing</strong>, and it's exploitable: upload a file that a server labels as a harmless image, but whose contents look like JavaScript, and a sniffing browser may execute it. <code>X-Content-Type-Options: nosniff</code> turns the guessing off. One line, one whole attack class closed.</p>
+<p>Note the pattern across the security family: every one of them is the <em>server</em> telling the <em>browser</em> to restrict itself. The server cannot enforce any of it. It can only ask, and rely on the browser being the one piece of software in this picture that is on the user's side.</p>
+</div>
+</section>
+
+<!-- ══════════════ 6 ══════════════ -->
+<section id="methods">
+<div class="part-rule"><span>Six</span></div>
+<h2 class="head">Methods, intent, and idempotency</h2>
+
+<blockquote><p>HTTP methods explicitly define the semantic intent of an operation requested by a client on a server resource.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 210" role="img" aria-label="The five common HTTP methods express intent">
+<text x="70" y="36" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="17" font-weight="600" fill="#2D7D5A" letter-spacing="1">GET</text>
+<text x="230" y="36" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="17" font-weight="600" fill="#5B4B8A" letter-spacing="1">POST</text>
+<text x="380" y="36" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="17" font-weight="600" fill="#9C4A18" letter-spacing="1">PUT</text>
+<text x="530" y="36" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="17" font-weight="600" fill="#0E6E7E" letter-spacing="1">PATCH</text>
+<text x="690" y="36" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="17" font-weight="600" fill="#B04A3F" letter-spacing="1">DELETE</text>
+
+<text x="70" y="58" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">read it</text>
+<text x="230" y="58" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">create a new one</text>
+<text x="380" y="58" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">replace it wholly</text>
+<text x="530" y="58" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">change part of it</text>
+<text x="690" y="58" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">remove it</text>
+
+<line x1="70" y1="70" x2="330" y2="104" stroke="#CBD4DC" stroke-width="1"/>
+<line x1="230" y1="70" x2="350" y2="104" stroke="#CBD4DC" stroke-width="1"/>
+<line x1="380" y1="70" x2="380" y2="104" stroke="#CBD4DC" stroke-width="1"/>
+<line x1="530" y1="70" x2="412" y2="104" stroke="#CBD4DC" stroke-width="1"/>
+<line x1="690" y1="70" x2="432" y2="104" stroke="#CBD4DC" stroke-width="1"/>
+
+<ellipse cx="380" cy="136" rx="106" ry="32" fill="none" stroke="#9C4A18" stroke-width="2"/>
+<text x="380" y="145" text-anchor="middle" font-family="IBM Plex Serif, Georgia, serif" font-size="24" font-style="italic" fill="#9C4A18">Intent</text>
+
+<text x="380" y="196" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">The method is a promise about what you mean. Nothing forces the server to honour it — which is the interesting part.</text>
+</svg>
+<p class="cap"><b>Five verbs, one idea</b>The path says <em>what</em>; the method says <em>what you intend to do to it</em>. The same URL supports several methods, each meaning something different.</p>
+</div>
+
+<div class="plain">
+<p class="tag">"Semantic intent" — and the thing nobody tells beginners</p>
+<p><strong>Semantics</strong> means meaning, as opposed to mechanics. Mechanically, every method is just a word at the start of a line. Nothing in HTTP prevents a server from deleting your account when it receives a <code>GET</code>. The method is a <em>convention</em> everyone agrees to honour.</p>
+<p>That matters because the whole ecosystem acts on the convention. Browsers pre-fetch <code>GET</code> URLs speculatively. Caches store <code>GET</code> responses. Crawlers follow every link they see — all <code>GET</code>s. Proxies retry failed <code>GET</code>s automatically. If you build a "delete" link that performs its action on <code>GET</code>, a search engine crawler will eventually walk your site and delete everything. This has genuinely happened to real companies.</p>
+<p>So the methods are not decoration. They are the contract by which every intermediary on the internet decides what it's safe to do with your request without asking.</p>
+</div>
+
+<blockquote><p>An HTTP method is idempotent if executing it multiple times yields the exact same state on the server as executing it once. GET, PUT, and DELETE are idempotent because fetching, replacing, or deleting a resource repeatedly produces consistent side-effects. POST is non-idempotent because invoking it multiple times creates multiple independent resources.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 300" role="img" aria-label="Idempotent versus non-idempotent methods">
+<text x="380" y="26" text-anchor="middle" font-family="IBM Plex Sans" font-size="19" font-weight="600" fill="#0E6E7E">Idempotent vs Non-idempotent</text>
+
+<rect x="16" y="46" width="350" height="180" rx="5" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.6"/>
+<text x="40" y="78" font-family="IBM Plex Mono, monospace" font-size="22" font-weight="600" fill="#16202B">GET</text>
+<text x="40" y="112" font-family="IBM Plex Mono, monospace" font-size="22" font-weight="600" fill="#16202B">PUT</text>
+<text x="40" y="146" font-family="IBM Plex Mono, monospace" font-size="22" font-weight="600" fill="#16202B">DELETE</text>
+<text x="200" y="78" font-family="IBM Plex Sans" font-size="11.5" fill="#2D7D5A">read it twice → same page</text>
+<text x="200" y="112" font-family="IBM Plex Sans" font-size="11.5" fill="#2D7D5A">set name to "Ada" twice → still Ada</text>
+<text x="200" y="146" font-family="IBM Plex Sans" font-size="11.5" fill="#2D7D5A">delete 12345 twice → still gone</text>
+<text x="40" y="182" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#16202B">Safe to retry automatically.</text>
+<text x="40" y="202" font-family="IBM Plex Sans" font-size="11.5" fill="#2D7D5A">Proxies, browsers and client libraries do exactly that.</text>
+
+<rect x="394" y="46" width="350" height="180" rx="5" fill="#F7E3E0" stroke="#B04A3F" stroke-width="1.6"/>
+<text x="418" y="86" font-family="IBM Plex Mono, monospace" font-size="22" font-weight="600" fill="#16202B">POST</text>
+<text x="418" y="120" font-family="IBM Plex Sans" font-size="11.5" fill="#B04A3F">submit the order once → one order</text>
+<text x="418" y="142" font-family="IBM Plex Sans" font-size="11.5" fill="#B04A3F">submit it three times → three orders</text>
+<text x="418" y="176" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#16202B">Never retried silently.</text>
+<text x="418" y="196" font-family="IBM Plex Sans" font-size="11.5" fill="#B04A3F">This is why browsers warn before re-submitting a form.</text>
+
+<line x1="16" y1="246" x2="744" y2="246" stroke="#DDE3E9"/>
+<text x="16" y="270" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">Idempotent does not mean "no effect" — DELETE clearly has one. It means the effect of doing it N times equals the effect of doing it once.</text>
+<text x="16" y="290" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">And it says nothing about the response: the first DELETE may return 204, the second 404, while the server's state is identical.</text>
+</svg>
+<p class="cap"><b>The distinction that governs retries</b>Networks lose replies. When a client doesn't hear back it must decide whether to try again — and idempotency is the only thing telling it whether that's safe.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>A lift button. Press it once or fifteen times, the lift is summoned — the state afterwards is identical. That's idempotent. Now compare the "buy" button on a checkout page: press it fifteen times and you own fifteen of them. That's not. And since neither button tells you whether your press registered, the difference between them is entirely a question of what it costs to press again.</p>
+</div>
+
+<div class="plain">
+<p class="tag">Safe vs idempotent, and the PATCH footnote</p>
+<p>A separate, narrower idea: a method is <strong>safe</strong> if it doesn't change anything at all. <code>GET</code> is safe. <code>PUT</code> and <code>DELETE</code> are idempotent but decidedly not safe. Every safe method is idempotent; the reverse isn't true.</p>
+<p><code>PATCH</code> sits awkwardly and is the standard exam question. It is <em>not</em> guaranteed idempotent, because it depends what your patch says. "Set status to archived" applied twice is harmless. "Add 10 to the balance" applied twice is a bug. Same method, different payload, different answer — which is why the specification declines to promise anything.</p>
+<p>In practice, real systems that must not double-charge don't rely on method semantics at all. They use an <strong>idempotency key</strong>: the client generates a unique ID per intended action and sends it along, and the server remembers which keys it has already processed. Retry as often as you like; only the first one counts. Every payment API you will ever integrate works this way.</p>
+</div>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Method</th><th>Intent</th><th>Safe</th><th>Idempotent</th><th>Typical status on success</th></tr></thead>
+<tbody>
+<tr><td><code>GET</code></td><td>Retrieve a resource</td><td>yes</td><td>yes</td><td><code>200 OK</code></td></tr>
+<tr><td><code>POST</code></td><td>Create; or "do something"</td><td>no</td><td><strong>no</strong></td><td><code>201 Created</code></td></tr>
+<tr><td><code>PUT</code></td><td>Replace entirely</td><td>no</td><td>yes</td><td><code>200</code> or <code>204</code></td></tr>
+<tr><td><code>PATCH</code></td><td>Modify part</td><td>no</td><td><em>depends</em></td><td><code>200</code> or <code>204</code></td></tr>
+<tr><td><code>DELETE</code></td><td>Remove</td><td>no</td><td>yes</td><td><code>204 No Content</code></td></tr>
+<tr><td><code>HEAD</code></td><td>Like GET, headers only</td><td>yes</td><td>yes</td><td><code>200</code>, no body</td></tr>
+<tr><td><code>OPTIONS</code></td><td>Ask what's permitted</td><td>yes</td><td>yes</td><td><code>204 No Content</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="key">
+<p class="tag">Where the next section starts</p>
+<p>That last row looks like an afterthought. It isn't — <code>OPTIONS</code> is the hinge the entire CORS mechanism turns on, and it's the reason the method exists in any practical sense today.</p>
+</div>
+</section>
+
+<!-- ══════════════ 7 ══════════════ -->
+<section id="cors">
+<div class="part-rule"><span>Seven</span></div>
+<h2 class="head">OPTIONS, the Same-Origin Policy and CORS</h2>
+
+<div class="dia">
+<svg viewBox="0 0 760 180" role="img" aria-label="OPTIONS and CORS, the opening sketch">
+<text x="380" y="50" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="30" font-weight="600" fill="#2D7D5A" letter-spacing="3">OPTIONS</text>
+<text x="380" y="74" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#53616F">a method whose only real job is to ask permission</text>
+
+<line x1="200" y1="96" x2="560" y2="96" stroke="#DDE3E9"/>
+
+<text x="240" y="140" font-family="IBM Plex Serif, Georgia, serif" font-size="30" font-style="italic" fill="#9C4A18">CORS</text>
+<line x1="352" y1="130" x2="392" y2="130" stroke="#9C4A18" stroke-width="2"/>
+<text x="404" y="140" font-family="IBM Plex Serif, Georgia, serif" font-size="26" font-style="italic" fill="#9C4A18">some origins</text>
+<text x="380" y="168" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#53616F">not "no origins", not "all origins" — a specific, server-declared list</text>
+</svg>
+<p class="cap"><b>The sketch that names the whole mechanism</b>CORS exists to turn a blanket "no" into a controlled "these ones, for these methods, with these headers."</p>
+</div>
+
+<blockquote><p>The OPTIONS method checks allowed communication capabilities on a server, playing a critical role in Cross-Origin Resource Sharing. Browsers enforce the Same-Origin Policy, preventing web pages from making unauthorized requests to a domain different from the host origin. CORS is a browser-enforced security mechanism allowing servers to specify which cross-origin requests are permitted.</p></blockquote>
+
+<div class="plain">
+<p class="tag">Origin, SOP, CORS — the three words, in the right order</p>
+<dl>
+<dt>Origin</dt>
+<dd><strong>Scheme + host + port.</strong> <code>https://example.com</code> (port 443 implied). Change any one of the three and it's a different origin — <code>http://example.com</code>, <code>https://api.example.com</code> and <code>https://example.com:8080</code> are all different origins from it, and from each other. Note that a subdomain is a different origin, which catches everyone out.</dd>
+<dt>Same-Origin Policy (SOP)</dt>
+<dd>The default rule, on by default, in every browser: a script from one origin may not <em>read</em> a response from another. Nobody enables it; it simply is.</dd>
+<dt>CORS</dt>
+<dd>Cross-Origin Resource Sharing. The mechanism by which a server can say "this particular other origin may read my responses after all." Despite sounding like a restriction, CORS is the <strong>exception system</strong> — the relaxation, not the rule. Almost everyone gets this backwards on first encounter.</dd>
+</dl>
+</div>
+
+<div class="plain">
+<p class="tag">Why the Same-Origin Policy has to exist</p>
+<p>Remember the <code>Cookie</code> header from section four: the browser attaches your cookies automatically, to every request to a site, without asking the page. Now imagine the rule didn't exist.</p>
+<p>You visit some random blog. Its JavaScript quietly makes a request to your bank's API. Your bank cookie is attached automatically, so the bank sees a fully authenticated request and answers honestly. The blog's script reads your balance and posts it somewhere. You clicked nothing. Your bank did nothing wrong. Your browser did exactly what it was designed to do.</p>
+<p>The Same-Origin Policy is what stands between you and that, on every page you have ever loaded. It does not protect the bank's server — the bank must still check permissions. It protects <em>you</em> from the page you happen to be on.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>Your cookies are signed blank cheques you carry everywhere, handed over automatically whenever a shop asks. The Same-Origin Policy is the law that a shop may only spend them on its own premises. CORS is the notarised letter by which one shop authorises a specific named other shop to do so too. And note who enforces the law: not the bank, but the wallet — your browser.</p>
+</div>
+
+<h3 class="sub">Two flows: simple and preflighted</h3>
+
+<blockquote><p>Cross-origin requests follow either a simple request flow or a preflighted request flow. In a simple request flow, the browser attaches an Origin header to the request, and the server validates it against its CORS policy using Access-Control-Allow-Origin. If the header is missing or does not match the request origin, the browser blocks the response and throws a CORS error.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 320" role="img" aria-label="The simple request flow, allowed and blocked">
+<defs><marker id="b7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="120" y="22" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#5B4B8A">example.com</text>
+<text x="120" y="38" font-family="IBM Plex Sans" font-size="10.5" fill="#8695A3">the page you're on</text>
+<text x="500" y="22" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#9C4A18">api.example.com</text>
+<text x="500" y="38" font-family="IBM Plex Sans" font-size="10.5" fill="#8695A3">a different origin — the subdomain differs</text>
+
+<rect x="200" y="52" width="360" height="72" rx="3" fill="#F8FAFB" stroke="#CBD4DC"/>
+<text x="216" y="72" font-family="IBM Plex Mono, monospace" font-size="11" fill="#2D7D5A">GET /api/products/123 HTTP/1.1</text>
+<text x="216" y="88" font-family="IBM Plex Mono, monospace" font-size="11" fill="#53616F">Host: api.example.com</text>
+<text x="216" y="104" font-family="IBM Plex Mono, monospace" font-size="11" fill="#5B4B8A">Origin: https://example.com</text>
+<text x="216" y="118" font-family="IBM Plex Mono, monospace" font-size="11" fill="#53616F">Accept: application/json</text>
+<text x="570" y="96" font-family="IBM Plex Sans" font-size="10.5" fill="#5B4B8A">the browser adds Origin</text>
+<text x="570" y="110" font-family="IBM Plex Sans" font-size="10.5" fill="#5B4B8A">— the page cannot forge it</text>
+
+<line x1="380" y1="124" x2="380" y2="146" stroke="#CBD4DC" stroke-width="1.4" marker-end="url(#b7)"/>
+<text x="16" y="164" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#8695A3" letter-spacing="0.5">TWO POSSIBLE RESPONSES</text>
+
+<rect x="16" y="176" width="350" height="128" rx="4" fill="#F7E3E0" stroke="#B04A3F" stroke-width="1.5"/>
+<text x="32" y="198" font-family="IBM Plex Mono, monospace" font-size="11" fill="#16202B">HTTP/1.1 200 OK</text>
+<text x="32" y="214" font-family="IBM Plex Mono, monospace" font-size="11" fill="#53616F">Content-Type: application/json</text>
+<text x="32" y="234" font-family="IBM Plex Sans" font-size="11" font-weight="600" fill="#B04A3F">no Access-Control-Allow-Origin</text>
+<text x="32" y="256" font-family="IBM Plex Mono, monospace" font-size="10" fill="#8695A3">{ "product": { "id": 123, … } }</text>
+<line x1="32" y1="266" x2="350" y2="266" stroke="#B04A3F" stroke-dasharray="3 3"/>
+<text x="32" y="284" font-family="IBM Plex Sans" font-size="11.5" font-weight="600" fill="#B04A3F">Browser blocks it. CORS error in the console.</text>
+<text x="32" y="298" font-family="IBM Plex Sans" font-size="10.5" fill="#B04A3F">Note: the server already answered. The script just can't look.</text>
+
+<rect x="394" y="176" width="350" height="128" rx="4" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.5"/>
+<text x="410" y="198" font-family="IBM Plex Mono, monospace" font-size="11" fill="#16202B">HTTP/1.1 200 OK</text>
+<text x="410" y="214" font-family="IBM Plex Mono, monospace" font-size="11" fill="#53616F">Content-Type: application/json</text>
+<text x="410" y="234" font-family="IBM Plex Mono, monospace" font-size="10.5" font-weight="600" fill="#2D7D5A">Access-Control-Allow-Origin: https://example.com</text>
+<text x="410" y="256" font-family="IBM Plex Mono, monospace" font-size="10" fill="#8695A3">{ "product": { "id": 123, … } }</text>
+<line x1="410" y1="266" x2="728" y2="266" stroke="#2D7D5A" stroke-dasharray="3 3"/>
+<text x="410" y="284" font-family="IBM Plex Sans" font-size="11.5" font-weight="600" fill="#2D7D5A">Header matches the Origin. The script may read it.</text>
+<text x="410" y="298" font-family="IBM Plex Sans" font-size="10.5" fill="#2D7D5A">Identical response bytes otherwise — one header decides everything.</text>
+</svg>
+<p class="cap"><b>The simple flow, both outcomes</b>The two responses differ by exactly one line. Everything about whether your code works or throws a console error comes down to that line being present and matching.</p>
+</div>
+
+<div class="key">
+<p class="tag">The single most misunderstood point in this post</p>
+<p>A CORS error does <strong>not</strong> mean the request was blocked. The request was sent. The server processed it. The response came back. The <em>browser</em> then refused to hand it to your JavaScript. If the request had a side effect, that side effect happened. CORS controls reading, not sending — and that gap is exactly the space CSRF attacks live in.</p>
+</div>
+
+<h3 class="sub">When a preflight is triggered</h3>
+
+<div class="dia">
+<svg viewBox="0 0 760 230" role="img" aria-label="The three conditions that trigger a preflight">
+<text x="16" y="30" font-family="IBM Plex Serif, Georgia, serif" font-size="24" font-weight="600" fill="#B04A3F">Preflighted Request</text>
+<text x="16" y="50" font-family="IBM Plex Sans" font-size="12" fill="#53616F">Any one of these three is enough to trigger it:</text>
+
+<rect x="16" y="64" width="728" height="46" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<circle cx="40" cy="87" r="10" fill="#0E6E7E"/><text x="40" y="91" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#fff">1</text>
+<text x="62" y="92" font-family="IBM Plex Sans" font-size="13.5" fill="#16202B">The method is not GET, POST or HEAD — e.g. PUT, DELETE, PATCH.</text>
+
+<rect x="16" y="118" width="728" height="46" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<circle cx="40" cy="141" r="10" fill="#0E6E7E"/><text x="40" y="145" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#fff">2</text>
+<text x="62" y="146" font-family="IBM Plex Sans" font-size="13.5" fill="#16202B">The request includes non-simple headers — e.g. Authorization, X-Custom-Header.</text>
+
+<rect x="16" y="172" width="728" height="46" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<circle cx="40" cy="195" r="10" fill="#0E6E7E"/><text x="40" y="199" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#fff">3</text>
+<text x="62" y="200" font-family="IBM Plex Sans" font-size="13.5" fill="#16202B">The Content-Type is something other than x-www-form-urlencoded, multipart/form-data or text/plain.</text>
+</svg>
+<p class="cap"><b>The trigger conditions</b>Condition three is why nearly every modern API call is preflighted: <code>application/json</code> isn't on the permitted list, so sending JSON is by itself enough.</p>
+</div>
+
+<div class="plain">
+<p class="tag">Why those three conditions, of all things?</p>
+<p>The rule is archaeological rather than logical. The "simple" cases are precisely the things a plain HTML <code>&lt;form&gt;</code> could already do in 1995, long before JavaScript could make requests. Those were already possible cross-origin, so forbidding them would have broken the existing web. Everything a form <em>couldn't</em> do — other methods, custom headers, JSON bodies — is new, and therefore gets the permission check.</p>
+<p>So the dividing line isn't "dangerous vs safe." It's "already possible vs newly possible." Which is also why a cross-origin form POST still sails through with no preflight at all, and why CSRF remains a live concern despite CORS existing.</p>
+</div>
+
+<h3 class="sub">The full preflight exchange</h3>
+
+<blockquote><p>The browser issues an initial preflight request using the OPTIONS method to query the server's supported origins, methods, and headers prior to sending the actual request payload. The server responds with HTTP 204 No Content along with headers specifying permitted origins, methods, non-simple headers, and cache duration. Upon preflight approval, the client transmits the original HTTP request and receives the final response payload.</p></blockquote>
+
+<pre><i># 1 — the preflight. Note: no body, and the real request has not been sent.</i>
+<b>OPTIONS /api/resource HTTP/1.1</b>
+<u>Host</u>: api.anotherdomain.com
+<u>Origin</u>: https://example.com
+<u>Access-Control-Request-Method</u>: PUT
+<u>Access-Control-Request-Headers</u>: Authorization
+
+<i># 2 — the server's answer. 204 means "no body, and none expected."</i>
+<b>HTTP/1.1 204 No Content</b>
+<s>Access-Control-Allow-Origin</s>: https://example.com
+<s>Access-Control-Allow-Methods</s>: PUT, DELETE
+<s>Access-Control-Allow-Headers</s>: Authorization
+<s>Access-Control-Max-Age</s>: 86400
+
+<i># 3 — approved, so now the browser sends what you actually asked for.</i>
+<b>PUT /api/resource HTTP/1.1</b>
+<u>Host</u>: api.anotherdomain.com
+<u>Origin</u>: https://example.com
+<u>Authorization</u>: Bearer token123
+<u>Content-Type</u>: application/json
+
+{ "name": "John Doe" }
+
+<i># 4 — and the real response. Still needs the Allow-Origin header.</i>
+<b>HTTP/1.1 200 OK</b>
+<s>Access-Control-Allow-Origin</s>: https://example.com
+<u>Content-Type</u>: application/json
+
+{ "message": "Resource updated successfully" }</pre>
+
+<div class="dia">
+<svg viewBox="0 0 760 320" role="img" aria-label="The preflight exchange as a sequence">
+<defs><marker id="b8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<rect x="30" y="14" width="140" height="32" rx="4" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="100" y="35" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">browser</text>
+<rect x="590" y="14" width="140" height="32" rx="4" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="660" y="35" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">server</text>
+<line x1="100" y1="50" x2="100" y2="306" stroke="#DDE3E9" stroke-width="1.5"/>
+<line x1="660" y1="50" x2="660" y2="306" stroke="#DDE3E9" stroke-width="1.5"/>
+
+<circle cx="100" cy="82" r="11" fill="#9C4A18"/><text x="100" y="86" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#fff">1</text>
+<line x1="114" y1="82" x2="648" y2="82" stroke="#9C4A18" stroke-width="1.6" marker-end="url(#b8)"/>
+<text x="380" y="74" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#9C4A18">OPTIONS /api/resource</text>
+<text x="380" y="100" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#8695A3">Origin · Access-Control-Request-Method · -Request-Headers</text>
+
+<circle cx="660" cy="132" r="11" fill="#0E6E7E"/><text x="660" y="136" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#fff">2</text>
+<line x1="646" y1="132" x2="112" y2="132" stroke="#0E6E7E" stroke-width="1.6" marker-end="url(#b8)"/>
+<text x="380" y="124" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#0E6E7E">204 No Content</text>
+<text x="380" y="150" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#8695A3">Allow-Origin · Allow-Methods · Allow-Headers · Max-Age: 86400</text>
+
+<rect x="216" y="166" width="328" height="28" rx="3" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.4"/>
+<text x="380" y="185" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">browser is satisfied — and caches this for 24 hours</text>
+
+<circle cx="100" cy="222" r="11" fill="#2D7D5A"/><text x="100" y="226" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#fff">3</text>
+<line x1="114" y1="222" x2="648" y2="222" stroke="#2D7D5A" stroke-width="1.8" marker-end="url(#b8)"/>
+<text x="380" y="214" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#2D7D5A">PUT /api/resource — the real one, with its body</text>
+
+<circle cx="660" cy="270" r="11" fill="#2D7D5A"/><text x="660" y="274" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#fff">4</text>
+<line x1="646" y1="270" x2="112" y2="270" stroke="#2D7D5A" stroke-width="1.8" marker-end="url(#b8)"/>
+<text x="380" y="262" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#2D7D5A">200 OK + Access-Control-Allow-Origin</text>
+<text x="380" y="290" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">The header is required again here — approving the preflight was not approving the response.</text>
+</svg>
+<p class="cap"><b>Four messages where you wrote one</b>Your code called <code>fetch()</code> once. The browser turned that into two round trips. <code>Access-Control-Max-Age</code> is what stops it being two round trips every single time.</p>
+</div>
+
+<div class="plain">
+<p class="tag">The five <code>Access-Control-*</code> headers</p>
+<dl>
+<dt><code>Access-Control-Request-Method</code> / <code>-Request-Headers</code></dt>
+<dd>Sent by the <em>browser</em> on the preflight. "I'm about to send a PUT carrying an Authorization header — acceptable?" It's asking about a request it hasn't made yet.</dd>
+<dt><code>Access-Control-Allow-Origin</code></dt>
+<dd>The server's answer to "who may read this." Either one specific origin or <code>*</code>. It must also appear on the real response, not just the preflight.</dd>
+<dt><code>Access-Control-Allow-Methods</code> / <code>-Allow-Headers</code></dt>
+<dd>Which methods and which non-simple headers are permitted. If your request uses one not on the list, the browser stops before sending anything real.</dd>
+<dt><code>Access-Control-Max-Age: 86400</code></dt>
+<dd>Seconds the browser may cache this approval — here, 24 hours. Without it, every single API call costs two round trips instead of one. A genuinely significant performance header that people forget to set.</dd>
+<dt><code>Vary: Origin</code></dt>
+<dd>Not in the slide, but visible in the Burp capture and essential in practice. If your server varies its Allow-Origin per caller, caches must be told so — otherwise a cached response approving one origin gets served to another, and your policy quietly evaporates.</dd>
+</dl>
+</div>
+
+<div class="sec">
+<p class="tag">Three things people get wrong about CORS</p>
+<p><strong>It is enforced by the browser, not the server.</strong> <code>curl</code>, a Python script, Burp Suite and a mobile app all ignore it completely. CORS constrains scripts in ordinary users' browsers; it is not access control, and an API protected "by CORS" is not protected.</p>
+<p><strong>It blocks reading, not sending.</strong> Side effects can already have occurred by the time the browser refuses you the response. CSRF tokens exist as a separate control for exactly this reason.</p>
+<p><strong><code>Allow-Origin: *</code> plus credentials is invalid</strong> and browsers reject it outright. The tempting workaround — read whatever <code>Origin</code> the caller sent and echo it straight back — defeats the entire mechanism while appearing to work perfectly, and is one of the most common real-world CORS vulnerabilities.</p>
+</div>
+
+<h3 class="sub">Seeing it for yourself</h3>
+
+<blockquote><p>Burp Suite is an inspection tool used to intercept, visualize, and analyze live HTTP traffic between client applications and backend servers. By executing simple and preflighted requests in a web application environment, developers can inspect raw HTTP headers and status codes in real time to diagnose CORS configurations.</p></blockquote>
+
+<div class="plain">
+<p class="tag">What a proxy tool is, and why it beats DevTools here</p>
+<p><strong>Burp Suite</strong> is an intercepting proxy: you point your browser at it, and every request passes through it on the way out. You see the raw bytes of both messages, and can pause, edit or replay them. DevTools shows you a tidied-up view of what the browser did; a proxy shows you what actually crossed the wire, including the requests DevTools hides.</p>
+<p>For CORS specifically, this is the difference between seeing "CORS error, 0 B transferred" in DevTools and seeing the full <code>OPTIONS</code> exchange plus the real response that arrived and was then discarded. It is the most direct way to convince yourself that the request really was sent.</p>
+</div>
+
+<div class="dia">
+<svg viewBox="0 0 760 260" role="img" aria-label="What each tool shows you of the same exchange">
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#5B4B8A" letter-spacing="0.5">THE SAME BLOCKED REQUEST, THREE VIEWPOINTS</text>
+
+<rect x="16" y="34" width="232" height="200" rx="4" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.4"/>
+<text x="132" y="58" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">your JavaScript</text>
+<line x1="34" y1="70" x2="230" y2="70" stroke="#C3BCD9"/>
+<text x="132" y="94" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#B04A3F">TypeError: Failed to fetch</text>
+<text x="132" y="122" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">No status code.</text>
+<text x="132" y="140" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">No headers. No body.</text>
+<text x="132" y="172" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#5B4B8A">Deliberately uninformative —</text>
+<text x="132" y="190" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#5B4B8A">telling the script why would</text>
+<text x="132" y="208" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#5B4B8A">itself leak information.</text>
+
+<rect x="264" y="34" width="232" height="200" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.4"/>
+<text x="380" y="58" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">DevTools</text>
+<line x1="282" y1="70" x2="478" y2="70" stroke="#B4CFD3"/>
+<text x="380" y="94" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#B04A3F">CORS error · 0 B · 29 ms</text>
+<text x="380" y="122" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">Names the reason.</text>
+<text x="380" y="140" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">Shows request headers.</text>
+<text x="380" y="172" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#0A4F5B">But "0 B" is misleading —</text>
+<text x="380" y="190" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#0A4F5B">that's bytes given to your</text>
+<text x="380" y="208" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#0A4F5B">code, not bytes received.</text>
+
+<rect x="512" y="34" width="232" height="200" rx="4" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.4"/>
+<text x="628" y="58" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">an intercepting proxy</text>
+<line x1="530" y1="70" x2="726" y2="70" stroke="#A9CDBA"/>
+<text x="628" y="94" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#2D7D5A">200 OK · 63 bytes · full body</text>
+<text x="628" y="122" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">The server answered.</text>
+<text x="628" y="140" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#53616F">The data arrived.</text>
+<text x="628" y="172" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" font-weight="600" fill="#2D7D5A">The browser simply</text>
+<text x="628" y="190" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" font-weight="600" fill="#2D7D5A">declined to pass it on.</text>
+
+<text x="380" y="254" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">Three descriptions of one event. Only the third one is what happened on the network.</text>
+</svg>
+<p class="cap"><b>Why the tooling choice changes the conclusion</b>If you only ever look through DevTools it's easy to believe CORS stopped the request. Watch the same exchange through a proxy and the real behaviour — and the real risk — becomes obvious.</p>
+</div>
+
+<div class="key">
+<p class="tag">The practical checklist when CORS bites you</p>
+<p>Is the failing request a preflight (<code>OPTIONS</code>) or the real one? Does <code>Access-Control-Allow-Origin</code> appear on <em>both</em> responses? Does it match your origin exactly — scheme, host <em>and</em> port? Is your method in <code>Allow-Methods</code> and every custom header in <code>Allow-Headers</code>? If you send cookies, is <code>Allow-Credentials: true</code> set and <code>Allow-Origin</code> a specific origin rather than <code>*</code>? Five questions, in that order, and they resolve nearly every case.</p>
+</div>
+</section>
+
+<!-- ══════════════ 8 ══════════════ -->
+<section id="glossary">
+<div class="part-rule"><span>Eight</span></div>
+<h2 class="head">Recap, then every word defined</h2>
+
+<div class="plain">
+<p class="tag">The whole post in one paragraph</p>
+<p>HTTP is a publicly agreed text format for a client to ask and a server to answer. It rests on two rules: the server remembers nothing between requests, and only the client may speak first. Statelessness buys simplicity, horizontal scaling and resilience, and is paid for with cookies, sessions or JWTs re-sent on every single call. Underneath, <strong>TCP</strong> guarantees ordered delivery and <strong>TLS</strong> adds encryption — several round trips of ceremony that every HTTP version since 1996 has been trying to reduce, ending with HTTP/3 abandoning TCP altogether for <strong>QUIC</strong>. A message is a start line, headers, a blank line and a body; the start line carries the <strong>method</strong> and <strong>path</strong> going out and the <strong>status code</strong> coming back. Headers are metadata that intermediaries can act on without opening the body, grouped into request, general, representation and security families, extensible by anyone, and functioning as a remote control each side uses to steer the other. Methods declare intent, and their <strong>idempotency</strong> is what tells every proxy and client library whether a failed request is safe to retry. Finally, because browsers attach your cookies automatically, the <strong>Same-Origin Policy</strong> forbids scripts from reading other origins' responses, and <strong>CORS</strong> is the server-declared exception list — negotiated in advance by an <code>OPTIONS</code> preflight whenever the request is anything a 1995 HTML form couldn't already have sent.</p>
+</div>
+
+<h3 class="sub">Glossary</h3>
+
+<details class="jargon" open>
+<summary>The protocol itself</summary>
+<div class="body">
+<dl>
+<dt>HTTP</dt><dd>HyperText Transfer Protocol. A written-down agreement on the format of request and response messages.</dd>
+<dt>HTTPS</dt><dd>The same protocol wrapped in TLS encryption. Conceptually identical for backend purposes.</dd>
+<dt>Protocol</dt><dd>Any format agreed in advance so two parties who've never met can understand each other.</dd>
+<dt>Stateless</dt><dd>The server retains no memory between requests; each must be self-contained.</dd>
+<dt>State management layer</dt><dd>Cookies, sessions or JWTs — the mechanisms bolted on top to simulate memory.</dd>
+<dt>Client–server model</dt><dd>The client always initiates; the server only ever responds.</dd>
+<dt>Resource</dt><dd>Whatever a path refers to: a page, a record, an image, a search result.</dd>
+</dl>
+</div>
+</details>
+
+<details class="jargon">
+<summary>Messages</summary>
+<div class="body">
+<dl>
+<dt>Start line</dt><dd>The first line. Request: method, path, version. Response: version, status code, reason phrase.</dd>
+<dt>Header</dt><dd>A <code>Name: value</code> metadata line. Any number of them, in either direction.</dd>
+<dt>Blank line</dt><dd>The single empty line marking the end of the headers. Structurally essential.</dd>
+<dt>Body</dt><dd>The payload. Optional — most GETs have none.</dd>
+<dt>Status code</dt><dd>1xx informational · 2xx success · 3xx redirect · 4xx client error · 5xx server error.</dd>
+<dt>Content negotiation</dt><dd>Client states preferences (<code>Accept</code>, <code>Accept-Encoding</code>) and the server picks a representation.</dd>
+<dt>Chunked transfer encoding</dt><dd>Sending a body in self-describing pieces when its total size isn't known upfront. Enables streaming.</dd>
+<dt>Request smuggling</dt><dd>Exploiting disagreement between two servers about where one message ends and the next begins.</dd>
+</dl>
+</div>
+</details>
+
+<details class="jargon">
+<summary>Headers worth knowing by name</summary>
+<div class="body">
+<dl>
+<dt>Host</dt><dd>Which domain the request is for. Mandatory in HTTP/1.1; how one machine serves many sites.</dd>
+<dt>User-Agent</dt><dd>The client describing itself. Historically unreliable by design.</dd>
+<dt>Authorization</dt><dd>The credential. <code>Bearer</code> means possession alone grants access.</dd>
+<dt>Accept / Accept-Encoding</dt><dd>What formats, and what compression, the client can handle.</dd>
+<dt>Content-Type / Content-Length / Content-Encoding</dt><dd>What the body is, how big, and how it's compressed.</dd>
+<dt>Cache-Control</dt><dd>Instructions to every cache in the path. <code>no-store</code> means keep no copy anywhere.</dd>
+<dt>ETag</dt><dd>A content fingerprint enabling cheap "has this changed?" checks.</dd>
+<dt>Vary</dt><dd>"My answer depends on this request header" — tells caches not to over-share a response.</dd>
+<dt>Set-Cookie</dt><dd>Issues a cookie. <code>Secure</code> = HTTPS only; <code>HttpOnly</code> = invisible to JavaScript.</dd>
+<dt>Referer</dt><dd>Which page linked here. Misspelled in the 1996 spec, never fixed.</dd>
+<dt>HSTS</dt><dd>Strict-Transport-Security: "never use plain HTTP with me again."</dd>
+<dt>CSP</dt><dd>Content-Security-Policy: restricts which sources scripts may load from. Main anti-XSS control.</dd>
+<dt>X-Frame-Options</dt><dd>Forbids other sites embedding your page in a frame. Anti-clickjacking.</dd>
+<dt>X-Content-Type-Options: nosniff</dt><dd>"Believe my Content-Type, don't guess from the bytes."</dd>
+</dl>
+</div>
+</details>
+
+<details class="jargon">
+<summary>Methods</summary>
+<div class="body">
+<dl>
+<dt>GET</dt><dd>Retrieve. Safe and idempotent. Cached, prefetched, crawled and retried by things you don't control.</dd>
+<dt>POST</dt><dd>Create, or "perform an action." Not idempotent — twice means twice.</dd>
+<dt>PUT</dt><dd>Replace the whole resource. Idempotent.</dd>
+<dt>PATCH</dt><dd>Modify part of it. Idempotent only if your patch happens to be.</dd>
+<dt>DELETE</dt><dd>Remove. Idempotent — the second attempt changes nothing further.</dd>
+<dt>HEAD</dt><dd>Exactly GET, but headers only, no body. Useful for checking existence or size.</dd>
+<dt>OPTIONS</dt><dd>Ask what's permitted. In practice, the CORS preflight.</dd>
+<dt>Safe</dt><dd>Changes nothing on the server. Only GET, HEAD and OPTIONS.</dd>
+<dt>Idempotent</dt><dd>Doing it N times leaves the same state as doing it once. Governs whether retries are safe.</dd>
+<dt>Idempotency key</dt><dd>A client-generated unique ID so the server can ignore duplicate submissions. How payment APIs avoid double charges.</dd>
+</dl>
+</div>
+</details>
+
+<details class="jargon">
+<summary>Transport and versions</summary>
+<div class="body">
+<dl>
+<dt>TCP</dt><dd>Reliable, ordered delivery. Costs a three-way handshake to open.</dd>
+<dt>UDP</dt><dd>Fire-and-forget. No ordering, no retransmission, much less setup.</dd>
+<dt>TLS</dt><dd>Encryption plus server identity verification. Formerly called SSL.</dd>
+<dt>Three-way handshake</dt><dd>SYN, SYN-ACK, ACK — one full round trip before any data.</dd>
+<dt>OSI model</dt><dd>The seven-layer reference chart. HTTP is layer 7; TCP is layer 4; IP is layer 3.</dd>
+<dt>Persistent connection</dt><dd>Reusing one TCP connection for many requests. HTTP/1.1's headline feature.</dd>
+<dt>Multiplexing</dt><dd>Many concurrent requests interleaved over one connection. HTTP/2.</dd>
+<dt>Binary framing</dt><dd>Messages packed as binary frames rather than text. Faster and unambiguous to parse.</dd>
+<dt>HPACK</dt><dd>Header compression using a shared table of previously-sent headers.</dd>
+<dt>Server push</dt><dd>Sending resources before they're requested. Largely abandoned in practice.</dd>
+<dt>Head-of-line blocking</dt><dd>One lost packet stalling everything queued behind it, related or not.</dd>
+<dt>QUIC</dt><dd>A UDP-based transport with per-stream recovery and a merged TLS handshake. The basis of HTTP/3.</dd>
+</dl>
+</div>
+</details>
+
+<details class="jargon">
+<summary>Origins, CORS and security</summary>
+<div class="body">
+<dl>
+<dt>Origin</dt><dd>Scheme + host + port. All three must match to count as the same origin.</dd>
+<dt>Same-Origin Policy</dt><dd>Default browser rule: a script may not read another origin's responses.</dd>
+<dt>CORS</dt><dd>The server-declared exception list to that rule. Browser-enforced only.</dd>
+<dt>Preflight</dt><dd>An <code>OPTIONS</code> request asking permission before sending the real one.</dd>
+<dt>Simple request</dt><dd>Something a 1995 HTML form could already have sent. Skips the preflight.</dd>
+<dt>Access-Control-Allow-Origin</dt><dd>"This origin may read my response." Required on the real response, not just the preflight.</dd>
+<dt>Access-Control-Max-Age</dt><dd>How long the browser may cache a preflight approval. Halves your request count when set.</dd>
+<dt>CSRF</dt><dd>Tricking a browser into sending a state-changing request with its cookies attached. Not prevented by CORS.</dd>
+<dt>XSS</dt><dd>Injecting attacker JavaScript into a page. Countered chiefly by CSP.</dd>
+<dt>Clickjacking</dt><dd>Invisibly framing a page to steal clicks. Countered by X-Frame-Options.</dd>
+<dt>MIME sniffing</dt><dd>A browser guessing content type from bytes. Disabled with <code>nosniff</code>.</dd>
+<dt>JWT</dt><dd>A self-contained signed token carrying its own claims. Signed, not encrypted — readable by anyone holding it.</dd>
+<dt>Intercepting proxy</dt><dd>A tool like Burp Suite that shows and lets you edit the raw traffic your browser sends.</dd>
+</dl>
+</div>
+</details>
+
+<div class="key">
+<p class="tag">If you remember three things</p>
+<p><strong>One</strong> — HTTP forgets you between every request, and every login system you've ever used is a workaround for that. <strong>Two</strong> — the method isn't decoration; it's the contract by which caches, crawlers and proxies decide what they may do to your request without asking. <strong>Three</strong> — CORS blocks the browser from <em>reading</em> a response, not the server from <em>acting</em> on a request, and almost every misconception about web security starts by getting that backwards.</p>
+</div>
+</section>
+
+<footer>
+<div class="nextprev">
+<a href="./03-tracing-a-request.html"><span class="lbl">← PREVIOUS</span><span class="ttl">Tracing a request from a browser to a process</span></a>
+</div>
+  <p>Annotated from the walkthrough video. Whiteboard sketches redrawn as vector diagrams; definitions, analogies and security notes added.</p>
+</footer>
+
+</div>
+</body>
+</html>

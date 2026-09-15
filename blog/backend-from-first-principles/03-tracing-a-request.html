@@ -115,6 +115,43 @@ blockquote p{margin:0;max-width:none}
 .annot p:last-child{margin-bottom:0}
 .annot .lead{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.05em;color:var(--teal);margin-bottom:10px}
 
+/* ── beginner layer ── */
+.plain{background:var(--card);border:1px solid var(--rule);border-left:2px solid var(--violet);
+  padding:20px 24px;margin:28px 0;max-width:var(--measure)}
+.plain .tag{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--violet);margin-bottom:10px}
+.plain p{margin-bottom:12px;font-size:15.5px}
+.plain p:last-child{margin-bottom:0}
+.plain ul,.plain ol{font-size:15.5px;margin:0 0 12px}
+.plain code{background:#E9E5F3}
+.plain dl{margin:0;font-size:15.5px}
+.plain dt{font-weight:600;margin-top:12px}
+.plain dt:first-child{margin-top:0}
+.plain dd{margin:3px 0 0;color:var(--ink-soft)}
+
+.anal{background:var(--green-wash);border-left:2px solid var(--green);padding:18px 24px;margin:26px 0;max-width:var(--measure)}
+.anal .tag{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--green);margin-bottom:8px}
+.anal p{margin:0;font-size:15.5px}
+.anal code{background:#C9DFD3}
+
+.jargon{margin:26px 0;max-width:var(--measure);border:1px solid var(--rule);background:var(--card)}
+.jargon summary{cursor:pointer;padding:14px 20px;font-family:'IBM Plex Mono',monospace;font-size:12px;
+  letter-spacing:.05em;color:var(--teal);list-style:none}
+.jargon summary::-webkit-details-marker{display:none}
+.jargon summary::before{content:"▸ ";color:var(--teal)}
+.jargon[open] summary::before{content:"▾ "}
+.jargon summary:hover{background:#F6F8F9}
+.jargon .body{padding:4px 20px 18px;border-top:1px solid var(--rule-soft)}
+.jargon dl{margin:0;font-size:15px}
+.jargon dt{font-weight:600;margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:13.5px;color:var(--teal-deep)}
+.jargon dt:first-child{margin-top:12px}
+.jargon dd{margin:4px 0 0;color:var(--ink-soft);max-width:66ch}
+
+.primer{border:1px solid var(--teal);background:var(--card);padding:30px 32px 34px;margin:38px 0 56px}
+.primer h2{font-family:'IBM Plex Serif',Georgia,serif;font-size:28px;font-weight:600;margin:0 0 6px}
+.primer .lede{color:var(--ink-soft);font-size:15.5px;margin:0 0 24px;max-width:62ch}
+.primer h3{font-size:17px;font-weight:600;margin:26px 0 8px}
+.primer p{font-size:15.5px}
+
 footer{border-top:1px solid var(--rule);padding:40px 0 80px;margin-top:40px;font-size:14.5px;color:var(--ink-faint)}
 footer a{text-decoration:none}
 .nextprev{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:26px}
@@ -148,13 +185,69 @@ footer a{text-decoration:none}
 <nav class="contents">
   <h2>Contents</h2>
   <ol>
+    <li><a href="#primer">Start here: the ten words you need</a></li>
     <li><a href="#what">What is a backend?</a></li>
     <li><a href="#how">How backends work</a></li>
     <li><a href="#why">Why do we need backends?</a></li>
     <li><a href="#fe">How frontends work</a></li>
     <li><a href="#walls">Why backend logic can't live in the frontend</a></li>
+    <li><a href="#glossary">The whole thing in one paragraph, then every word defined</a></li>
   </ol>
 </nav>
+
+<!-- ══════════════ 0 ══════════════ -->
+<section id="primer">
+<div class="part-rule"><span>Zero</span></div>
+<h2 class="head">Start here: the ten words you need</h2>
+
+<p>Everything below assumes you know nothing. If you already know what an IP address is, skip to <a href="#what">section one</a> — but the rest of this guide leans on these ten ideas constantly, so it's worth thirty seconds each.</p>
+
+<div class="primer">
+<h2>The vocabulary, in plain English</h2>
+<p class="lede">Read these as a set. They build on each other: a <em>computer</em> has an <em>IP address</em>, runs <em>processes</em>, which listen on <em>ports</em>, which you reach using a <em>protocol</em>, after a <em>domain name</em> is translated by <em>DNS</em>.</p>
+
+<h3>1 · Client and server</h3>
+<p>A <strong>client</strong> is whatever asks. A <strong>server</strong> is whatever answers. That's the whole distinction — it's a role in a conversation, not a type of hardware. Your laptop is a client when you browse, and could be a server if you ran software on it that answered requests. The words describe who spoke first.</p>
+
+<h3>2 · A server is a real computer</h3>
+<p>Not a cloud, not an abstraction. A physical machine sitting in a warehouse somewhere, plugged into power and a network, that never gets turned off. When this guide says "AWS EC2 instance," it means a slice of one of those machines that Amazon rents you by the hour.</p>
+
+<h3>3 · IP address</h3>
+<p>A number that identifies one machine on a network, written like <code>54.175.148.96</code>. Think of it as a street address. Every machine reachable on the internet has one. Humans are bad at remembering them, which is the entire reason domain names exist.</p>
+
+<h3>4 · Domain name</h3>
+<p>The human-readable label — <code>google.com</code>, <code>backend-demo.sriniously.xyz</code>. It is <em>not</em> an address. It is a name that has to be looked up to find the address, the same way a contact name in your phone has to be looked up to find the number.</p>
+
+<h3>5 · DNS</h3>
+<p>The system that does that lookup. <strong>D</strong>omain <strong>N</strong>ame <strong>S</strong>ystem — the internet's phone book. You give it a name, it gives you back an IP address. This happens before anything else in every request you've ever made, invisibly, in milliseconds.</p>
+
+<h3>6 · Process</h3>
+<p>A program that is currently running. Not the file on disk — the live thing in memory doing work. Your browser is a process. A web server is a process. One computer runs hundreds at once. Each gets a number called a <strong>PID</strong> (process ID) so the operating system can tell them apart.</p>
+
+<h3>7 · Port</h3>
+<p>A number between 0 and 65535 that identifies <em>which process</em> on a machine you want to talk to. The IP address gets your message to the building; the port number gets it to the right apartment. A process "listens on" or "binds to" a port, meaning it has claimed that number and will be handed anything addressed to it.</p>
+
+<h3>8 · Protocol</h3>
+<p>An agreed format for the conversation. Both sides have to have decided in advance what a message looks like, or neither can parse the other. <strong>HTTP</strong> is the protocol of the web. <strong>TCP</strong> is the lower-level one underneath it that guarantees the bytes arrive in order.</p>
+
+<h3>9 · Request and response</h3>
+<p>One round trip. The client sends a <strong>request</strong> (a chunk of text saying what it wants and some extra information about itself), the server sends back a <strong>response</strong> (a status number, some extra information, and usually a body of content). Everything in this guide is one request and one response, traced in slow motion.</p>
+
+<h3>10 · Headers and body</h3>
+<p>Both requests and responses have two parts. <strong>Headers</strong> are the metadata — small labelled lines like <code>Content-Type: application/json</code> that describe the message. The <strong>body</strong> is the actual payload: the HTML, the image bytes, the JSON. Headers are the envelope; the body is the letter.</p>
+</div>
+
+<div class="anal">
+<p class="tag">The analogy this whole guide runs on</p>
+<p>A request is a letter. <strong>DNS</strong> is looking up the address in a directory. The <strong>firewall</strong> is the security desk in the lobby deciding which deliveries are even allowed in the building. <strong>Nginx</strong> is the receptionist inside who reads who the letter is addressed to and walks it to the right office. The <strong>app process</strong> is the person in that office who opens it, does something, and writes a reply. Nothing about the internet is more complicated than that — it's just that each of those four steps has its own jargon.</p>
+</div>
+
+<div class="plain">
+<p class="tag">Two conventions used throughout</p>
+<p><strong>Things written like <code>this</code></strong> are literal — a command you'd type, a filename, a piece of configuration, an address. You could copy them.</p>
+<p><strong>The word "hop."</strong> A hop is one leg of the journey — one place the request stops before moving on. This guide breaks the trip into five hops and gives each one a numbered heading.</p>
+</div>
+</section>
 
 <!-- ══════════════ 1 ══════════════ -->
 <section id="what">
@@ -163,9 +256,37 @@ footer a{text-decoration:none}
 
 <blockquote><p>Let's picture it. A backend in its traditional definition is a computer which is listening for HTTP or WebSocket or gRPC or any other kind of request through an open port — whether it is 80 or 443 — which is accessible over the internet, so that clients or other frontends can connect to it, send data to it, or receive data.</p></blockquote>
 
+<div class="plain">
+<p class="tag">That sentence, decoded</p>
+<p>It's one long sentence with five pieces of jargon in it. Taken apart:</p>
+<dl>
+<dt>"a computer which is listening"</dt>
+<dd>A program is running that has told the operating system: <em>if anything arrives addressed to me, wake me up.</em> It then sits idle, doing nothing, possibly for days. That waiting state is what "listening" means. It is not actively checking anything.</dd>
+<dt>"for HTTP or WebSocket or gRPC"</dt>
+<dd>Three different formats the incoming message might be written in. See the second diagram below — the differences don't matter yet.</dd>
+<dt>"through an open port"</dt>
+<dd>"Open" means two things had to happen: the program claimed the port number, <em>and</em> the firewall was configured to let outside traffic through to it. Either one missing and it's closed.</dd>
+<dt>"whether it is 80 or 443"</dt>
+<dd>The two conventional port numbers for web traffic. 80 is unencrypted, 443 is encrypted. They're conventions, not laws — but the entire internet agreed on them, so everything assumes them.</dd>
+<dt>"accessible over the internet"</dt>
+<dd>The crucial qualifier. A program listening on a port on your laptop is a server, but only your laptop can reach it. Being on the public internet with a public IP address is what makes it useful to strangers.</dd>
+</dl>
+</div>
+
 <p>And the name is literal:</p>
 
 <blockquote><p>We call it a server because it provides, or it serves, some kind of content — whether it is static files like images or JavaScript files or HTML files, or it could be JSON. And it also accepts data if the client sends something.</p></blockquote>
+
+<div class="plain">
+<p class="tag">"Static files" versus "JSON"</p>
+<p><strong>Static files</strong> are files that already exist on disk and get sent back byte-for-byte, unchanged, to everyone who asks. An image, a stylesheet, a logo. "Static" means nothing is computed — the server just reads the file and hands it over, like a photocopier.</p>
+<p><strong>JSON</strong> (JavaScript Object Notation) is a text format for structured data. It looks like this: <code>{"name": "Ada", "id": 42}</code>. It's how one program sends data to another program in a way both can parse. It is generated fresh per request, usually from a database, which is why it's the opposite of static. When an app "calls an API," JSON is almost always what comes back.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>Serving static files is a vending machine: same slot, same item, every time. Serving JSON is a kitchen: you order, someone reads the order, assembles something specific to you, and hands it over. Same building, very different work.</p>
+</div>
 
 <div class="dia">
 <svg viewBox="0 0 760 330" role="img" aria-label="A backend is a computer listening on open ports">
@@ -276,6 +397,23 @@ footer a{text-decoration:none}
 <p class="cap"><b>The three protocols named in the definition</b>The video lists HTTP, WebSocket and gRPC together because from the server's point of view they're the same situation — a process bound to a port, waiting.</p>
 </div>
 
+<div class="plain">
+<p class="tag">The three protocols, for someone who's never met them</p>
+<dl>
+<dt>HTTP — "stateless" and "one shot"</dt>
+<dd><strong>One shot</strong>: you ask, you get an answer, the conversation ends. Want something else? Start a brand new conversation. <strong>Stateless</strong>: the server remembers nothing about you between requests. Each one arrives as if from a total stranger. (Logins work by the client re-presenting a token every single time — the server isn't remembering, you're re-introducing yourself.)</dd>
+<dt>WebSocket — "persistent" and "both sides push"</dt>
+<dd>The line stays open. Crucially, the <em>server</em> can now speak first, which plain HTTP cannot do. That's what makes live chat and live scoreboards possible without the client asking "anything new?" every second.</dd>
+<dt>gRPC — "binary" and "typed"</dt>
+<dd><strong>Binary</strong> means the message is packed bytes rather than readable text — smaller and faster to parse, but you can't eyeball it. <strong>Typed</strong> means both sides agreed in advance on the exact shape of every message, so mismatches get caught early. It's "mostly internal" because it's used between a company's own servers, not between a browser and a server.</dd>
+</dl>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>HTTP is sending a letter and getting one back. WebSocket is a phone call left off the hook — either party can talk whenever. gRPC is two colleagues who've agreed on a shorthand notation nobody else can read, because they only ever talk to each other and want to be fast.</p>
+</div>
+
 <figure>
 <img src="images/03-01-the-opening-sketch.png" width="2048" height="1143" decoding="async" alt="The opening sketch">
 <figcaption><b>The opening sketch</b>The two numbers written beside the drawn machine — 80 and 443 — are the only doors the public internet knocks on in the entire setup that follows. The cloud on the right is the internet; the boxes on the left are clients.</figcaption>
@@ -284,6 +422,18 @@ footer a{text-decoration:none}
 <h3 class="sub">Why those two numbers specifically</h3>
 
 <p>A machine has one IP address but runs many services. Ports multiplex: the IP gets you to the machine, the port gets you to the right process on it. Typing <code>https://</code> silently appends <code>:443</code>; <code>http://</code> appends <code>:80</code>.</p>
+
+<div class="plain">
+<p class="tag">Unpacking that</p>
+<p><strong>"Multiplex"</strong> just means "let many things share one channel by labelling them." One wire, many conversations, kept apart by a number.</p>
+<p><strong>"Silently appends"</strong> is worth pausing on, because it explains an oddity you've seen your whole life. The full address of a web page is really <code>https://example.com:443/page</code>. You never type the <code>:443</code> because your browser fills it in for you whenever you write <code>https://</code>. If a site ran on an unusual port you'd have to type it yourself — which is why developers' local addresses look like <code>localhost:3000</code>.</p>
+<p><strong>HTTP vs HTTPS</strong>: the S is "secure," meaning the contents are encrypted in transit so anyone intercepting the wire sees scrambled bytes instead of your password. The encryption system is called <strong>TLS</strong> (you may see the older name, SSL). That's why 80 and 443 are separate ports: they're the same conversation, one shouted in public and one in code.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>The IP address is the street address of an office tower. The port is the suite number. Port 443 is the suite everyone knows the reception desk is in, so nobody bothers writing it on the envelope.</p>
+</div>
 
 <div class="tbl">
 <table>
@@ -296,6 +446,18 @@ footer a{text-decoration:none}
 </tbody>
 </table>
 </div>
+
+<div class="plain">
+<p class="tag">That table, explained</p>
+<dl>
+<dt><code>22</code> — SSH</dt>
+<dd><strong>S</strong>ecure <strong>Sh</strong>ell. A way to get a text-only terminal on a distant computer, as if you were sitting at its keyboard, with everything encrypted. It's how you administer a server you'll never physically touch. When later screenshots show someone typing commands "on the server," this is how they got there.</dd>
+<dt><code>80</code> — "here it exists only to redirect"</dt>
+<dd>A <strong>redirect</strong> is a response that says "not here, go to this other address instead," which the browser obeys automatically. So port 80 is a doorman whose only job is to point at the other door. Nothing real is served there.</dd>
+<dt><code>3000</code> / <code>3001</code> — "where the apps bind"</dt>
+<dd><strong>Bind</strong> = claim a port number. These are arbitrary — a convention among developers, nothing more. The important word is <strong>never exposed publicly</strong>: the apps are listening on those numbers, but the firewall refuses to carry outside traffic to them. The only way in is through 443. This one fact is the spine of the whole article.</dd>
+</dl>
+</div>
 </section>
 
 <!-- ══════════════ 2 ══════════════ -->
@@ -305,7 +467,24 @@ footer a{text-decoration:none}
 
 <blockquote><p>I want you to get a holistic view — to actually see the components physically, how they work behind the scenes. So let's go through this whole flow. I have a backend server which is deployed in AWS, so let's take that as an example.</p></blockquote>
 
+<div class="plain">
+<p class="tag">What "deployed in AWS" means</p>
+<p><strong>AWS</strong> (Amazon Web Services) rents computers by the hour. You don't buy a machine or find somewhere to keep it; you click a button and a few seconds later you have a computer in a data centre with an IP address, which you pay for until you switch it off.</p>
+<p><strong>EC2</strong> is the specific AWS product for "give me a plain computer." An <strong>EC2 instance</strong> is one such rented machine. It's a <strong>virtual machine</strong> — a software-simulated computer sharing real hardware with other customers' simulated computers, kept strictly separated. From inside, it is indistinguishable from a real machine.</p>
+<p><strong>Deployed</strong> means "copied onto the server and started running there," as opposed to running on the developer's laptop.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>Renting an EC2 instance is renting a desk in a co-working space rather than buying an office. The building, power and internet are someone else's problem; you just show up and work. And you can hand the desk back at 4pm and stop paying.</p>
+</div>
+
 <p>Here is the entire path first, then we take it apart hop by hop.</p>
+
+<div class="plain">
+<p class="tag">How to read the diagram below</p>
+<p>Follow the numbered circles top to bottom. The request starts in the browser and goes <em>down</em>; the dashed purple line up the right side is the answer coming back the same way in reverse. The large grey box labelled AWS is the boundary of Amazon's network; the white box inside it is the one rented computer. The dashed red line on the right is a request that gets thrown away.</p>
+</div>
 
 <div class="dia">
 <svg viewBox="0 0 760 620" role="img" aria-label="The full path of a request from browser to app process">
@@ -382,6 +561,12 @@ footer a{text-decoration:none}
 <p class="cap"><b>Five hops, one request</b>The return path is dashed because it retraces the same route in reverse. Note the dashed red line on the right: port 3001 is not reachable from outside — the only way to the app is through Nginx.</p>
 </div>
 
+<div class="plain">
+<p class="tag">What "DevTools" is, and how to open it yourself</p>
+<p><strong>DevTools</strong> (developer tools) is a panel built into every browser that shows you what the page is actually doing underneath. Press <code>F12</code>, or right-click anywhere on a page and choose <em>Inspect</em>. The <strong>Network</strong> tab lists every single request the page made, with the headers and the response body for each.</p>
+<p>This matters because it means nothing in this article is theoretical. Every claim about a request can be checked, by you, on any website, right now. <strong>Remote Address</strong> in that panel is literally the machine your browser ended up talking to — the end result of the DNS lookup, displayed for you.</p>
+</div>
+
 <figure>
 <img src="images/03-02-the-request-and-its-response-in-devtools.jpg" width="1500" height="602" loading="lazy" decoding="async" alt="The request and its response in DevTools">
 <figcaption><b>The request and its response in DevTools</b>Left: the raw JSON the backend returned. Right: the Headers pane for the request that produced it. <code>Remote Address: 54.175.148.96:443</code> means DNS has already resolved — the browser is telling you exactly which machine and port it reached.</figcaption>
@@ -391,6 +576,20 @@ footer a{text-decoration:none}
 <div class="hop"><div class="hop-num">01</div><div class="hop-txt"><h3>DNS</h3><p>turning a name into an address</p></div></div>
 
 <blockquote><p>The first thing that you can see is the domain name. So the first thing that comes to mind is, we should take a look at our DNS server.</p></blockquote>
+
+<div class="plain">
+<p class="tag">Words in this hop</p>
+<dl>
+<dt>Registrar</dt>
+<dd>The company you buy a domain name from. Domain names are rented annually, not owned. The registrar also gives you a control panel where you say which IP address the name should point to — that's the screenshot below.</dd>
+<dt>DNS record</dt>
+<dd>One line in that panel. A record has a <strong>type</strong> (what kind of answer it gives), a <strong>host</strong> (which name it applies to) and a <strong>value</strong> (the answer). The world's DNS servers read these and repeat them to anyone who asks.</dd>
+<dt>Subdomain</dt>
+<dd>In <code>backend-demo.sriniously.xyz</code>, the part <code>backend-demo</code> is a subdomain of <code>sriniously.xyz</code>. You own the whole domain, so you can invent as many subdomains as you like for free and point each anywhere. That's why one person can run both a "frontend" and "backend" address.</dd>
+<dt>Nameserver</dt>
+<dd>A computer whose job is answering DNS questions. There is no single one — there are millions, arranged in a hierarchy, which is the second diagram in this hop.</dd>
+</dl>
+</div>
 
 <figure>
 <img src="images/03-03-the-registrar-s-dns-panel.jpg" width="1500" height="1256" loading="lazy" decoding="async" alt="The registrar's DNS panel">
@@ -409,6 +608,22 @@ footer a{text-decoration:none}
 <tr><td>TXT</td><td><code>@</code></td><td><code>v=spf1 include:spf.efwd…</code></td><td>SPF — who may send mail as this domain</td></tr>
 </tbody>
 </table>
+</div>
+
+<div class="plain">
+<p class="tag">Row by row, since most of these look cryptic</p>
+<dl>
+<dt><code>@</code> in the Host column</dt>
+<dd>Shorthand for "the domain itself, with nothing in front" — i.e. <code>sriniously.xyz</code> rather than <code>something.sriniously.xyz</code>. It's a convention, not a symbol with meaning.</dd>
+<dt>The two rows pointing at <code>54.175.148.96</code></dt>
+<dd>This is the punchline of the whole guide, stated early. Two completely different-looking web addresses — the "frontend" and the "backend" — resolve to the <em>same single computer</em>. They are not two servers. Section four shows how one machine tells them apart.</dd>
+<dt>CNAME</dt>
+<dd><strong>C</strong>anonical <strong>Name</strong>. An alias. Instead of answering with an address, it answers with another name you now have to look up. Used when the final IP isn't yours to know — a hosting company may change their servers' addresses whenever they like, and a CNAME means you never have to update anything.</dd>
+<dt>TXT</dt>
+<dd>A free-text note attached to your domain. It does nothing for routing. Since only the domain's owner can add one, other companies use it as proof of ownership: Google says "put this exact string in a TXT record," and if it appears, you evidently control the domain.</dd>
+<dt>SPF</dt>
+<dd><strong>S</strong>ender <strong>P</strong>olicy <strong>F</strong>ramework — a TXT record listing which mail servers are allowed to send email claiming to be from your domain. It exists because email, by default, lets anyone write any return address they like. Unrelated to web traffic, but it lives in the same panel, which is why it's in the screenshot.</dd>
+</dl>
 </div>
 
 <blockquote><p>To oversimplify it, DNS has different types of records. You can use A records to point to a particular IP, and you can use CNAME records to point to a particular domain name or subdomain.</p></blockquote>
@@ -488,9 +703,28 @@ footer a{text-decoration:none}
 <p class="cap"><b>Where a lookup actually goes</b>Most lookups never leave your machine, because something already has the answer cached. <strong>TTL</strong> is what controls how long each of these layers may hold on to it.</p>
 </div>
 
+<div class="plain">
+<p class="tag">Caching, resolvers, and TTL</p>
+<p><strong>Cache</strong> (rhymes with "cash") means a saved copy of an answer, kept so you don't have to ask again. Caching is everywhere in computing and it is the single biggest reason anything feels fast.</p>
+<p><strong>Resolver</strong> is the name for whoever does the legwork of chasing a DNS answer down. Usually it's run by your internet provider. Your browser asks it, and it either already knows or goes on the hunt shown in the diagram.</p>
+<p><strong>TTL</strong> — <strong>T</strong>ime <strong>T</strong>o <strong>L</strong>ive — is a number of seconds attached to every DNS answer meaning "you may keep this copy for this long, then throw it away and ask again." It's the reason changing a DNS record doesn't take effect instantly for everyone: caches all over the world are still repeating the old answer until their TTL expires.</p>
+<p><strong>Root nameserver / TLD server / authoritative NS</strong> are the three rungs of the hunt. <strong>TLD</strong> is <strong>T</strong>op-<strong>L</strong>evel <strong>D</strong>omain — the last chunk of a name, like <code>.com</code>, <code>.org</code> or here <code>.xyz</code>. <strong>Authoritative</strong> means "this one isn't repeating what it heard; this one holds the actual record and its answer is final."</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>Finding a phone number for someone in a huge organisation. You check your own contacts (browser cache), then the sticky note on your desk (OS cache), then ask the office manager (your resolver). If nobody knows, the office manager rings the main switchboard, which says "that's the Glasgow branch," which says "that's the accounts team," who finally give the actual number. And then everyone writes it down, so nobody has to do that again this week. The TTL is how long they trust their note before binning it.</p>
+</div>
+
 <div class="sec">
 <p class="tag">Security note · DNS is the first hop</p>
 <p>Because DNS resolves <em>before</em> TLS is negotiated, an attacker who controls the answer controls where your traffic goes. <strong>Hijacking</strong> changes the record at the registrar; <strong>cache poisoning</strong> feeds a resolver a forged answer. DNSSEC signs responses so tampering is detectable — and the panel in the screenshot shows it <strong>toggled off</strong>.</p>
+</div>
+
+<div class="plain">
+<p class="tag">Why that note is scarier than it sounds</p>
+<p><strong>TLS</strong> is the encryption that makes the padlock icon appear. It also verifies you're really talking to the site you asked for. But — and this is the point — DNS happens <em>first</em>. If someone feeds your computer a false answer at the DNS stage, you connect to their machine believing it to be the real one, and they can present their own valid padlock for a lookalike domain. The encryption worked perfectly; it just encrypted your conversation with the wrong person.</p>
+<p><strong>Cache poisoning</strong> is slipping a forged answer into one of those caches from the previous diagram, so everyone using that resolver gets sent the wrong way. <strong>DNSSEC</strong> adds a cryptographic signature to DNS answers so a forgery can be spotted. "Toggled off" means this particular domain has no such protection — which is extremely common and worth knowing.</p>
 </div>
 
 <!-- HOP 2 -->
@@ -514,6 +748,26 @@ footer a{text-decoration:none}
 <tr><td>IMDSv2</td><td><code>Required</code></td><td>A real hardening setting — see below</td></tr>
 </tbody>
 </table>
+</div>
+
+<div class="plain">
+<p class="tag">The two IP addresses, and why there are two</p>
+<p>A machine can have several addresses at once, on different networks, the way a person can have a street address and an internal desk extension.</p>
+<dl>
+<dt>Public IPv4 — <code>54.175.148.96</code></dt>
+<dd>Reachable from anywhere on earth. This is the one DNS hands out. <strong>IPv4</strong> is just the older, four-numbers-with-dots addressing scheme; IPv6 is the newer, longer one.</dd>
+<dt>Private IPv4 — <code>172.31.87.253</code></dt>
+<dd>Only meaningful inside Amazon's private network around your machines. Numbers starting <code>172.31.</code>, <code>10.</code> or <code>192.168.</code> are reserved for private networks worldwide — your home router almost certainly gave your laptop one. They are deliberately not routable on the open internet.</dd>
+<dt><code>127.0.0.1</code> — loopback</dt>
+<dd>Appears in the diagram below. This address always means "this very machine, talking to itself." Traffic sent here never touches a network cable at all. Its nickname is <strong>localhost</strong>. Remember it; hop four depends entirely on it.</dd>
+<dt><code>t2.micro</code></dt>
+<dd>The size of the rented machine. <strong>vCPU</strong> = virtual processor core. 1 core and 1 GB of memory is tiny — less than a cheap phone — and it's free for the first year, which is why tutorials use it.</dd>
+</dl>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>Public IP: your building's postal address, known to the world. Private IP: your desk number, meaningful only to colleagues inside. Loopback: writing yourself a note and putting it in your own pocket — it never leaves you.</p>
 </div>
 
 <div class="dia">
@@ -557,10 +811,40 @@ footer a{text-decoration:none}
 <p>EC2 instances can query <code>169.254.169.254</code> for their own metadata, including temporary IAM credentials. Under IMDSv1 a plain GET sufficed, making it a devastating <strong>SSRF</strong> target — trick a server into fetching that URL and you walk away with its cloud credentials. That was the mechanism in the 2019 Capital One breach. IMDSv2 requires a session token obtained by PUT first, which a naive SSRF can't produce.</p>
 </div>
 
+<div class="plain">
+<p class="tag">VPC, SSRF, IAM — decoded</p>
+<dl>
+<dt>VPC</dt>
+<dd><strong>V</strong>irtual <strong>P</strong>rivate <strong>C</strong>loud. Your own private network inside Amazon, walled off from other customers'. Machines in it can talk to each other by private IP; nothing outside can reach in unless you allow it.</dd>
+<dt>IAM credentials</dt>
+<dd><strong>I</strong>dentity and <strong>A</strong>ccess <strong>M</strong>anagement — Amazon's permission system. Credentials are the keys that prove "I'm allowed to read those files / start those machines." Stealing them means acting as the company inside their own cloud account.</dd>
+<dt>The metadata address</dt>
+<dd><code>169.254.169.254</code> is a magic address every EC2 machine can ask about itself. Handy — it's how a server learns its own configuration without hardcoding it. Dangerous — because the answer includes live credentials.</dd>
+<dt>SSRF</dt>
+<dd><strong>S</strong>erver-<strong>S</strong>ide <strong>R</strong>equest <strong>F</strong>orgery. You trick a server into making a request <em>on your behalf</em>. Say a site has a "fetch the image at this URL" feature; you give it that magic metadata address instead, and it obediently fetches the credentials and shows them to you. The server had permission, you didn't, and you borrowed its hands.</dd>
+<dt>GET and PUT</dt>
+<dd>Two HTTP verbs — the first word of every request. <code>GET</code> means "give me this," <code>PUT</code>/<code>POST</code> mean "here's some data." The fix works because the naive attack can usually only make the server perform a simple GET, and the newer version demands a two-step handshake starting with a PUT.</dd>
+</dl>
+<p><strong>Capital One, 2019</strong>: exactly this chain, real-world, roughly 100 million customer records.</p>
+</div>
+
 <!-- HOP 3 -->
 <div class="hop"><div class="hop-num">03</div><div class="hop-txt"><h3>The firewall</h3><p>before it reaches the computer</p></div></div>
 
 <blockquote><p>Before it reaches our server, or the particular computer, it goes through a firewall which is the AWS native firewall. The firewall has to allow some kind of request to go through.</p></blockquote>
+
+<div class="plain">
+<p class="tag">Firewall, security group, inbound, dropped</p>
+<p>A <strong>firewall</strong> is a filter sitting in front of a machine that inspects arriving traffic and decides whether to pass it on. In AWS the firewall is called a <strong>security group</strong> — a list of rules attached to your machine. Same idea, Amazon's name for it.</p>
+<p><strong>Inbound</strong> rules govern traffic coming toward your machine; <strong>outbound</strong> rules govern traffic your machine sends out. The screenshot shows three inbound and one outbound.</p>
+<p><strong>Dropped</strong> is a deliberate word. The packet isn't rejected with an error message — it's silently discarded, and the sender gets nothing at all, just a timeout. That's preferable, because an error reply would confirm that a machine exists there and is refusing you. Silence tells an attacker nothing.</p>
+<p>A <strong>packet</strong> is one small chunk of data travelling the network. Big messages get chopped into many; the firewall inspects each one.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>A nightclub with a guest list and a bouncer. The list names who gets in (ports 22, 80, 443); everyone else is turned away at the pavement, without explanation, and never learns whether the club is even open. Note the direction of the logic: the list says who's allowed, not who's banned — so anyone forgotten is, by default, out.</p>
+</div>
 
 <figure>
 <img src="images/03-05-the-security-group-and-its-inbound-rules.jpg" width="1500" height="925" loading="lazy" decoding="async" alt="The security group and its inbound rules">
@@ -579,6 +863,12 @@ footer a{text-decoration:none}
 </div>
 
 <p><code>0.0.0.0/0</code> is CIDR notation for every IPv4 address in existence. Source: anywhere.</p>
+
+<div class="plain">
+<p class="tag">CIDR, and the "Protocol: TCP" column</p>
+<p><strong>CIDR</strong> (say "cider") is a compact way of writing a whole range of IP addresses. The number after the slash says how many leading bits are fixed: the higher the number, the narrower the range. <code>/32</code> is exactly one address; <code>/0</code> fixes nothing, so it matches all four billion. Writing <code>0.0.0.0/0</code> as a source means <em>let anyone on earth try</em>.</p>
+<p><strong>TCP</strong> — <strong>T</strong>ransmission <strong>C</strong>ontrol <strong>P</strong>rotocol — is the layer beneath HTTP. It handles the unglamorous work: chopping data into packets, numbering them, re-sending lost ones, reassembling them in order. HTTP is the language of the conversation; TCP is the reliable phone line it happens over. The firewall works at the TCP level, which is why it can see port numbers but not what you're saying.</p>
+</div>
 
 <blockquote><p>If we don't allow these two ports — like 443 for allowing HTTPS traffic or 80 to allow HTTP traffic — if you don't allow it, AWS will block it right there and our request won't be able to reach our server.</p></blockquote>
 
@@ -660,10 +950,39 @@ footer a{text-decoration:none}
 <p><strong>Security groups are stateful.</strong> Allow a connection inbound and its response is automatically permitted back out. Network ACLs, the other AWS firewall layer, are stateless and need rules in both directions.</p>
 </div>
 
+<div class="plain">
+<p class="tag">Brute force, bastion, stateful</p>
+<dl>
+<dt>Automated brute-force</dt>
+<dd>Programs that roam the internet trying every address, and on any machine with port 22 open, guessing usernames and passwords thousands of times an hour, forever. This is not targeted — it happens to every exposed server within minutes of it coming online. Use key-based login instead of passwords and it's survivable; use a weak password and it isn't.</dd>
+<dt>Bastion (or jump box)</dt>
+<dd>One heavily locked-down machine that is the only thing allowed to be reached from outside. You log into it, and from there into everything else. One door to defend instead of twenty.</dd>
+<dt>Stateful</dt>
+<dd>The firewall remembers connections it already approved. If it let your request in, it automatically lets the reply back out — you don't write a second rule for the return trip. <strong>Stateless</strong> filters have no memory, treat every packet as unrelated, and so need rules for both directions. Stateful is the friendlier default and the reason the outbound column in the screenshot looks so empty.</dd>
+</dl>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>A stateful firewall is a receptionist who signs you in and, remembering your face, waves you out without ceremony. A stateless one is a turnstile that checks a ticket in each direction and has no idea you're the same person.</p>
+</div>
+
 <!-- HOP 4 -->
 <div class="hop"><div class="hop-num">04</div><div class="hop-txt"><h3>Nginx</h3><p>the reverse proxy</p></div></div>
 
 <blockquote><p>We are using something called a reverse proxy, which basically means it is a server which sits in front of other servers, so that we can manage different types of redirects or configs from a centralized space instead of changing the configs in every single server.</p></blockquote>
+
+<div class="plain">
+<p class="tag">"Reverse" proxy — reverse compared to what?</p>
+<p>A <strong>proxy</strong> is any middleman that passes messages along on someone's behalf. A <strong>forward proxy</strong> sits in front of <em>you</em> and makes requests for you — a VPN or a corporate web filter. A <strong>reverse proxy</strong> sits in front of the <em>servers</em> and receives requests on their behalf. Same job, opposite end of the wire. "Reverse" only tells you which side it's protecting.</p>
+<p><strong>Nginx</strong> (pronounced "engine-X") is the most common piece of software for doing this. It is itself just another process listening on a port — there's nothing exotic about it. It happens to be the one holding 80 and 443.</p>
+<p>The quote mentions <strong>"configs"</strong> — short for configuration: text files that tell a program how to behave, edited by hand and re-read when the program restarts. Hop four's screenshots are literally these files.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>The reverse proxy is the receptionist in a shared office building. Every visitor arrives at one desk. The receptionist checks who they're here to see, and walks them to the right office. The people in the offices never deal with the front door, never check ID, never learn the building's security procedures — and if the procedures change, one person learns the new version, not forty.</p>
+</div>
 
 <div class="dia">
 <svg viewBox="0 0 760 290" role="img" aria-label="With and without a reverse proxy">
@@ -722,6 +1041,25 @@ footer a{text-decoration:none}
 <p class="cap"><b>What the proxy buys you</b>The blocking constraint on the left is physical: only one process can bind to port 443. Everything else is convenience, but that one is a hard limit.</p>
 </div>
 
+<div class="plain">
+<p class="tag">Certificates, Certbot, and "terminating TLS"</p>
+<dl>
+<dt>Certificate</dt>
+<dd>A file proving that whoever holds it really controls a given domain name, signed by an organisation browsers already trust. It's what makes the padlock appear. Without one, browsers show a full-page warning. A <strong>Certificate Authority</strong> is one of those trusted signers.</dd>
+<dt>Let's Encrypt and Certbot</dt>
+<dd><strong>Let's Encrypt</strong> is a free, automated Certificate Authority — its arrival is the main reason encryption became universal on the web. <strong>Certbot</strong> is the tool that talks to it: it proves you own the domain, fetches the certificate, edits your Nginx config for you, and renews it every couple of months. The <code># managed by Certbot</code> comments mark lines a human didn't write. (Anything after <code>#</code> is a comment: a note for humans, ignored by the machine.)</dd>
+<dt>Terminating TLS</dt>
+<dd>"Terminate" here means "end" — the encryption stops at Nginx. Nginx does the decrypting, and hands the now-plain request onward to the app. The app therefore never has to know anything about certificates. This is safe only because the onward hop is over loopback, never touching a network.</dd>
+<dt>Header</dt>
+<dd>Recall from the primer: a small labelled line of metadata. The <strong><code>Host</code> header</strong> is one the browser always sends, containing the domain name you typed. It's the critical one here — since both subdomains arrive at the same IP and port, that header is the <em>only</em> thing distinguishing them.</dd>
+</dl>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>Post arriving at a big office building. The street address gets everything to the same lobby (one IP, one port). The line on the envelope saying <em>Attn: Accounts</em> is the <code>Host</code> header. The mail clerk reads it and walks the letter upstairs. Two departments, one address, one envelope line telling them apart.</p>
+</div>
+
 <figure>
 <img src="images/03-06-etc-nginx-conf-d-backend-conf.jpg" width="1500" height="1113" loading="lazy" decoding="async" alt="/etc/nginx/conf.d/backend.conf">
 <figcaption><b>/etc/nginx/conf.d/backend.conf</b>Two server blocks. The first handles HTTPS on 443 and forwards inward. The second catches HTTP on 80 and bounces it to HTTPS. The <code># managed by Certbot</code> comments mark lines written automatically by Let's Encrypt tooling.</figcaption>
@@ -734,6 +1072,23 @@ footer a{text-decoration:none}
 <p><strong><code>proxy_set_header X-Real-IP $remote_addr;</code></strong> — without this the app would think every request came from <code>127.0.0.1</code>, because that is literally who is calling it.</p>
 <p><strong><code>listen 443 ssl;</code> and the <code>ssl_certificate</code> lines</strong> — Nginx holds the certificate, decrypts inbound TLS, forwards plaintext internally. The app never touches a certificate.</p>
 <p><strong><code>return 301 https://$host$request_uri;</code></strong> — the second block's entire job. Anything on port 80 is redirected to HTTPS.</p>
+</div>
+
+<div class="plain">
+<p class="tag">Those five lines, for someone who's never read a config file</p>
+<p>Nginx configs are a list of instructions, one per line, each ending in a semicolon. Words beginning with <code>$</code> are variables — placeholders Nginx fills in per request.</p>
+<dl>
+<dt><code>server_name</code></dt>
+<dd>"This block of instructions applies to requests whose <code>Host</code> header is this." It's the label on the office door.</dd>
+<dt><code>proxy_pass</code></dt>
+<dd>"Forward this request to that address and send whatever comes back to the visitor." Everything in a reverse proxy ultimately reduces to this one line.</dd>
+<dt><code>proxy_set_header X-Real-IP $remote_addr;</code></dt>
+<dd>Add a header recording who the visitor actually was. This is necessary because of a genuinely confusing consequence: once Nginx forwards the request, it becomes the sender. From the app's point of view, every visitor on earth appears to be <code>127.0.0.1</code> — itself. Without this line the app couldn't log, rate-limit, or geolocate anyone. Headers starting <code>X-</code> are conventionally custom ones nobody standardised.</dd>
+<dt><code>listen 443 ssl;</code></dt>
+<dd>"Claim port 443 and expect encrypted traffic on it." (SSL is the old name for TLS; the keyword stuck.)</dd>
+<dt><code>return 301</code></dt>
+<dd>301 is an HTTP status code meaning "moved permanently." The browser follows the new address automatically and remembers to go straight there next time. <em>Status codes</em> are the three-digit numbers in every response: 200 is success, 301/302 are redirects, 404 is not found, 500 is the server broke.</dd>
+</dl>
 </div>
 
 <blockquote><p>The part that confused me initially was why Nginx forwards the request to <code>localhost:3001</code>. It simply means the backend is running on the same EC2 machine, and Nginx acts like a receptionist that forwards requests to the correct application.</p></blockquote>
@@ -785,10 +1140,30 @@ footer a{text-decoration:none}
 <p><code>X-Forwarded-For</code> is trivially spoofable if an attacker can reach the app directly and the app trusts the header blindly. It is only safe to trust when traffic <em>must</em> pass through the proxy — which is exactly why port 3001 is closed at the firewall. The two controls depend on each other.</p>
 </div>
 
+<div class="plain">
+<p class="tag">Why that's a real problem, concretely</p>
+<p><strong><code>X-Forwarded-For</code></strong> is the standard header carrying the original visitor's IP address through a proxy — the same idea as <code>X-Real-IP</code> above. <strong>Spoofable</strong> means anyone can simply type any value they like into it, because headers are just text the sender writes.</p>
+<p>So: suppose your app blocks someone after five failed logins from one IP. If the attacker can reach the app directly, they set a fresh fake <code>X-Forwarded-For</code> on each attempt and your limit never triggers. The header is only trustworthy if the app is certain every request passed through Nginx, which rewrites it. That certainty comes entirely from port 3001 being closed at the firewall. Two separate settings, in two separate systems, that are only safe together — which is exactly the kind of thing that makes infrastructure hard.</p>
+</div>
+
 <!-- HOP 5 -->
 <div class="hop"><div class="hop-num">05</div><div class="hop-txt"><h3>The process</h3><p>the final hop</p></div></div>
 
 <blockquote><p>If we take a look at our processes, let's do <code>pm2 list</code>. We can see here that we have two processes running — one for frontend and another for backend. And this is a Node server. So this is the final hop.</p></blockquote>
+
+<div class="plain">
+<p class="tag">Node, PM2, PID</p>
+<dl>
+<dt>Node (Node.js)</dt>
+<dd>A program that runs JavaScript outside a browser. JavaScript was invented for web pages; Node let it run as a normal server-side program. It's why the same language can appear on both sides of this article.</dd>
+<dt>Express</dt>
+<dd>A small library for Node that handles the fiddly parts of being a web server, so you write "when someone asks for <code>/users</code>, do this" instead of parsing raw HTTP by hand. It shows up later in a response header.</dd>
+<dt>PM2 — a process manager</dt>
+<dd>A program whose job is running <em>other</em> programs and keeping them alive: restarting them if they crash, starting them again after a reboot, collecting their output into log files. <code>pm2 list</code> is a command that prints a table of everything it's currently minding.</dd>
+<dt>PID</dt>
+<dd>Process ID — the number the operating system uses to refer to one running program. It changes every time the program restarts. Useful mainly for telling two processes apart, which is exactly what the screenshot does.</dd>
+</dl>
+</div>
 
 <figure>
 <img src="images/03-07-pm2-list.jpg" width="1500" height="158" loading="lazy" decoding="async" alt="pm2 list">
@@ -796,6 +1171,31 @@ footer a{text-decoration:none}
 </figure>
 
 <p>Running <code>node server.js</code> in a terminal fails four ways: it dies when the SSH session closes, it doesn't return after a crash, it doesn't start after a reboot, and there's no log management. A process manager solves all four. Alternatives are systemd units, Docker with a restart policy, or Kubernetes.</p>
+
+<div class="plain">
+<p class="tag">Why those four failures happen, and what the alternatives are</p>
+<p>When you log into a server over SSH and type a command, that program is the child of your login session. <strong>Close the session and the operating system kills it</strong> — it assumes you're done. So a server started by hand dies the moment you disconnect, which surprises everyone once.</p>
+<p>The other three are just as mundane: programs crash and stay dead; rebooted machines start nothing on their own; and anything a program prints is thrown away unless someone catches it. A process manager is simply a babysitter that solves all four.</p>
+<dl>
+<dt>systemd</dt>
+<dd>The service manager already built into most Linux systems. A "unit" is a small file describing how to start something and when. No extra software needed.</dd>
+<dt>Docker</dt>
+<dd>Packages an app together with everything it needs into a <strong>container</strong> — a sealed box that runs identically anywhere. "Restart policy" means the same babysitting, configured in one line.</dd>
+<dt>Kubernetes</dt>
+<dd>The same idea at large scale: it runs containers across many machines, restarting and moving them automatically. Vastly more capable and vastly more complicated. Overkill here.</dd>
+</dl>
+</div>
+
+<div class="plain">
+<p class="tag">What <code>curl</code> is</p>
+<p><strong>curl</strong> is a command-line tool that makes an HTTP request and prints the response as text. No browser, no page rendering, no JavaScript — just the raw exchange. It's the standard way to check "is this thing actually answering?"</p>
+<p>The command <code>curl localhost:3001/users</code> means: from this machine, ask the process on port 3001 for the path <code>/users</code>. Notice what it skips. No domain name, so no DNS. It never leaves the machine, so no firewall. It goes straight to 3001, so no Nginx. All four hops bypassed — and the answer is identical. That is the proof that everything before it was infrastructure rather than substance.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>Ordering from a restaurant through a delivery app, versus walking into the kitchen and asking the chef directly. Same food. The app, the driver and the front-of-house staff were never part of the cooking — they were the delivery mechanism. And you can only walk into the kitchen if you're already in the building, which is the whole reason the front door exists.</p>
+</div>
 
 <figure>
 <img src="images/03-08-curl-localhost-3001-users.jpg" width="1500" height="582" loading="lazy" decoding="async" alt="curl localhost:3001/users">
@@ -864,9 +1264,37 @@ footer a{text-decoration:none}
 </table>
 </div>
 
+<div class="plain">
+<p class="tag">The less obvious rows</p>
+<dl>
+<dt>Content-Type</dt>
+<dd>Tells the browser what kind of thing the body is, so it knows what to do with it — render it as a page, show it as an image, or parse it as data. <code>charset=utf-8</code> specifies the character encoding, i.e. how the bytes map to letters. UTF-8 is the modern universal answer and covers every writing system plus emoji.</dd>
+<dt>ETag</dt>
+<dd>A short fingerprint of the content. Next time, the browser can ask "still this one?" and if nothing changed the server replies "unchanged" with no body at all — saving the whole download. A cache that can check itself cheaply.</dd>
+<dt>Connection: keep-alive</dt>
+<dd>Recall that TCP connection underneath. Setting one up costs a few round trips before a single byte of useful data moves. Keep-alive means "don't hang up, I'll probably ask for more in a second" — and since a web page makes dozens of requests, reusing the line is a large speed win.</dd>
+<dt>The last two rows</dt>
+<dd>These are the software voluntarily naming itself and its version number. Harmless-looking, and a gift to anyone scanning for known vulnerabilities — see the note below.</dd>
+</dl>
+</div>
+
 <div class="sec">
 <p class="tag">Security note · information disclosure</p>
 <p>Those last two rows are findings. <code>Server: nginx/1.24.0 (Ubuntu)</code> and <code>X-Powered-By: Express</code> tell an attacker exactly what software and version you run, making CVE lookup trivial. Suppress both — <code>server_tokens off;</code> in Nginx, <code>app.disable('x-powered-by')</code> in Express. Also absent: no <code>Strict-Transport-Security</code>, no <code>Content-Security-Policy</code>, no <code>X-Frame-Options</code>.</p>
+</div>
+
+<div class="plain">
+<p class="tag">CVEs, and those three missing headers</p>
+<p>A <strong>CVE</strong> (Common Vulnerabilities and Exposures) is a publicly catalogued security flaw with an ID number. The catalogue is open on purpose, so defenders can patch. The side effect: if a server announces "nginx 1.24.0," anyone can look up that exact version's known flaws in seconds. Saying less is free defence — hence "<strong>information disclosure</strong>," the category of leaking details that are individually harmless but collectively a map.</p>
+<dl>
+<dt>Strict-Transport-Security (HSTS)</dt>
+<dd>Tells the browser "for this site, never use unencrypted HTTP again, even if asked." Closes the gap where your very first visit goes over port 80 before the redirect fires — the one moment an attacker on the network could intercept.</dd>
+<dt>Content-Security-Policy (CSP)</dt>
+<dd>A list of which sources the page is permitted to load scripts from. If an attacker manages to inject a malicious script tag, the browser refuses to run it because the source isn't on the approved list. The main defence against a large class of attacks called XSS (cross-site scripting).</dd>
+<dt>X-Frame-Options</dt>
+<dd>Stops other websites from embedding your page invisibly inside theirs and tricking users into clicking things they can't see — an attack with the excellent name <strong>clickjacking</strong>.</dd>
+</dl>
+<p>All three are single lines of config. "Absent" means nobody added them, which is the normal state of most of the internet.</p>
 </div>
 </section>
 
@@ -939,6 +1367,27 @@ footer a{text-decoration:none}
 <p class="cap"><b>Seven steps, five of which only a server can do</b>Identify the caller, authorize the action, persist the fact, look up a <em>different user's</em> data, and trigger something on a device you have no access to. Your phone can do none of these on its own.</p>
 </div>
 
+<div class="plain">
+<p class="tag">The five server-only steps, in plain terms</p>
+<dl>
+<dt>Authenticate</dt>
+<dd><em>Who are you?</em> Checking that whoever sent this really is the account they claim. Your phone can assert "I'm user 88" — but an assertion from an untrusted device is worthless. Only the server can verify it against something it holds.</dd>
+<dt>Authorize</dt>
+<dd><em>Are you allowed to do this?</em> A separate question from the first. You might be genuinely logged in and still have no right to see that post, because it belongs to a private account you don't follow. (These two words look almost identical and mean very different things — it's the most common beginner confusion in the whole field.)</dd>
+<dt>Persist</dt>
+<dd>Write it down permanently. "Persistent" storage survives the program stopping, the phone dying, the machine rebooting. If your like only lived in your phone's memory, it would vanish and nobody else would ever have known about it.</dd>
+<dt>Database</dt>
+<dd>A program specialised in storing data and answering questions about it quickly and reliably. <code>INSERT like(88, 123)</code> is roughly what such an instruction looks like: record that user 88 liked post 123.</dd>
+<dt>Push notification</dt>
+<dd>A message that appears on a device without that device having asked for anything. It goes through Apple's or Google's infrastructure, which is the only thing with a standing connection to every phone. You cannot reach your friend's phone. Nothing you write can. Only a server holding the right credentials can ask Apple to deliver it.</dd>
+</dl>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>Your phone is a customer at a bank counter. It can request things and be shown things. It cannot walk into the vault, cannot alter the ledger, cannot look up another customer's balance, and cannot phone a different customer at home. Those are all teller-side powers, and no amount of clever app code grants them, because they were never on your side of the counter to begin with.</p>
+</div>
+
 <blockquote><p>If you try to condense down and strip it down — the responsibility and the use of backend to a single word — it will be this: <strong>data</strong>. The need to fetch data, the need to receive data, and the need to persist data somewhere.</p></blockquote>
 
 <h3 class="sub">Why it has to be centralised</h3>
@@ -993,6 +1442,19 @@ footer a{text-decoration:none}
 <p class="cap"><b>Slices versus the whole</b>Clients render personalised views; the server owns the truth and decides who sees which slice. That decision is authorization — and it's the reason "just do it on the frontend" collapses.</p>
 </div>
 
+<div class="plain">
+<p class="tag">"State", "centralised", "single source of truth"</p>
+<p><strong>State</strong> is just "the current facts" — who follows whom, what's been liked, who's logged in. Anything that can change and has to be remembered.</p>
+<p><strong>Centralised</strong> means one authoritative copy in one place. The alternative — every phone holding its own copy — immediately breaks, because the copies would disagree the instant two people acted at once, and there'd be no way to decide who was right.</p>
+<p><strong>Single source of truth</strong> is the name for that one authoritative copy. When two systems disagree, this is the one that wins by definition.</p>
+<p>And the consequence in the diagram's margin is the important one: if the server holds everything and the <em>client</em> decides which parts to show you, then anyone willing to modify their own copy of the app can simply decide to show themselves everything. The filtering has to happen on the side you don't control.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>A library holds every book; you leave with a few. If instead the library handed every visitor the entire collection and politely asked them to only read their own borrowings, "borrowing" would stop meaning anything. Sending data to a client and hiding it in the interface is exactly that mistake — and it's a real, frequent bug, not a hypothetical one.</p>
+</div>
+
 <figure>
 <img src="images/03-10-diagram.png" width="1472" height="842" loading="lazy" decoding="async" alt="diagram">
 <figcaption><b>The whiteboard version</b>Clients around the edges, centralised state in the middle, arrows in both directions. Requests in, personalised responses out.</figcaption>
@@ -1005,6 +1467,22 @@ footer a{text-decoration:none}
 <h2 class="head">How frontends work</h2>
 
 <blockquote><p>In order to understand why we can't use all those functionalities in the frontend, we have to see how frontends actually work behind the scenes. This is a Next.js application that I have deployed in the same AWS EC2 instance.</p></blockquote>
+
+<div class="plain">
+<p class="tag">Next.js, waterfalls, chunks</p>
+<dl>
+<dt>Next.js</dt>
+<dd>A popular framework for building websites with React. The relevant fact for this article: a Next.js site isn't a folder of files, it's a <em>running program</em> — a Node process listening on a port, exactly like the backend. That's why the two halves of this setup look identical.</dd>
+<dt>React</dt>
+<dd>A JavaScript library for building interfaces out of reusable components. All you need to know here is that it means the page is assembled by JavaScript running in your browser, rather than arriving finished.</dd>
+<dt>Waterfall</dt>
+<dd>The staircase-shaped chart in DevTools' Network tab. Each horizontal bar is one request; its left edge is when it started, its length is how long it took. Bars start late because the browser didn't know they existed yet — it had to read the HTML first to discover them. That dependency is what makes the staircase.</dd>
+<dt>Chunk</dt>
+<dd>One piece of a large JavaScript codebase, split up deliberately so the browser can download only what a given page needs instead of the entire application.</dd>
+<dt>Favicon</dt>
+<dd>The tiny icon in the browser tab. Its own separate request, like everything else.</dd>
+</dl>
+</div>
 
 <figure>
 <img src="images/03-11-the-next-js-page-and-its-network-waterfa.jpg" width="1500" height="547" loading="lazy" decoding="async" alt="The Next.js page and its network waterfall">
@@ -1070,6 +1548,20 @@ footer a{text-decoration:none}
 <text x="16" y="270" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">The browser cannot know what to fetch until it has parsed the HTML. That dependency is what creates the staircase.</text>
 </svg>
 <p class="cap"><b>Paint, then hydrate</b>CSS arriving makes the page look correct. JavaScript executing makes it work. The window between them is why bundle size is an obsession in frontend performance.</p>
+</div>
+
+<div class="plain">
+<p class="tag">Paint and hydrate — the two words in that diagram</p>
+<p><strong>HTML</strong> is the structure of a page (headings, paragraphs, buttons). <strong>CSS</strong> is its appearance (colours, spacing, fonts). <strong>JavaScript</strong> is its behaviour (what happens when you click).</p>
+<p><strong>Paint</strong> is the moment the browser has enough HTML and CSS to draw the page. It looks finished.</p>
+<p><strong>Hydrate</strong> is the later moment when the JavaScript has downloaded and run, attaching the behaviour to what's already drawn. Now the buttons do things. The name comes from the image of adding water to something dried out: the shape was already there, the life wasn't.</p>
+<p><strong>The gap</strong> between them is a real, visible interval — often a second or more on a slow phone — during which the page looks completely ready and completely ignores you. It's why frontend developers are obsessive about how much JavaScript they ship.</p>
+<p>The <strong>DOM</strong>, which appears in the next section, is the browser's live in-memory model of the page. JavaScript changes the page by changing the DOM.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>A film set. Paint is the moment the shopfronts are up and it photographs as a real street. Hydrate is when the doors are actually connected to rooms. In between, everything looks right and nothing opens.</p>
 </div>
 
 <figure>
@@ -1165,6 +1657,18 @@ footer a{text-decoration:none}
 <p class="cap"><b>The asymmetry underneath all four walls</b>Anything running in a browser runs on hardware the user owns, in a runtime they can inspect. Secrets aren't secret. Logic isn't trusted. Client-side validation is a suggestion.</p>
 </div>
 
+<div class="plain">
+<p class="tag">"The browser is our runtime"</p>
+<p>A <strong>runtime</strong> is whatever environment your code executes inside. Backend code runs inside Node on a machine you rent. Frontend code runs inside a browser on a machine belonging to a stranger.</p>
+<p>That relocation is the entire subject of this section, and it has a consequence people find hard to accept at first: <strong>every line of frontend code you write is public</strong>. It has to be — the browser can't run it without receiving it. Anyone can open DevTools and read it, pause it mid-execution, change a value, and resume. Not a hack; a standard feature of every browser, used by developers all day.</p>
+<p>So an API key in frontend code is published. A check that says "only admins see this button" is a suggestion the user can delete. A price calculated in the browser is a number the user can edit before sending. None of this can be fixed with cleverness, because you don't own the machine.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>The backend is a sealed exam room you invigilate. The frontend is a take-home paper: you can print instructions on it, but the candidate is alone with it, holding a pen, and can write whatever they like before handing it back. So you check the answers when it returns — you never trust the paper to have marked itself.</p>
+</div>
+
 <h3 class="sub">Wall one · the sandbox</h3>
 
 <blockquote><p>Browser runtimes are often sandboxed environments, which means they are isolated from our operating systems, the processes, and the file system. Everything is an isolated environment, which means the code can only access a limited amount of resources.</p></blockquote>
@@ -1214,11 +1718,31 @@ footer a{text-decoration:none}
 <p class="cap"><b>What the sandbox permits and forbids</b>Every page you visit executes untrusted code from a stranger. The sandbox is what makes that survivable — and it forbids nearly everything a backend needs.</p>
 </div>
 
+<div class="plain">
+<p class="tag">What's in the sandbox diagram</p>
+<p>A <strong>sandbox</strong> is a restricted area a program runs inside, able to touch only what it's explicitly given. The name is literal: a child can do whatever they like in the sandpit without it affecting the garden.</p>
+<p><em>Allowed:</em> <strong>the DOM</strong> (the page itself), <strong>localStorage</strong> (a small key-value store the browser keeps per site, surviving refreshes), <strong>cookies</strong> (small pieces of data the browser automatically attaches to every request to a site — how logins persist), and <strong>fetch()</strong> (the function for making HTTP requests, subject to the CORS rules below).</p>
+<p><em>Forbidden:</em> reading your files; reading <strong>environment variables</strong> (settings passed to a program when it starts, the standard place to keep passwords and API keys on a server); opening <strong>raw TCP sockets</strong> (direct low-level network connections, as opposed to going through HTTP); seeing other programs on your computer; and <strong>binding a port</strong> — which is worth stating plainly, because it means <em>browser code cannot be a server at all</em>. It has no way to listen. It can only ever be the one asking.</p>
+<p><strong>HttpOnly</strong>, in that asterisk: a flag on a cookie meaning "JavaScript may not read this, only send it." It's how a session token can go with every request while remaining invisible to any malicious script that gets onto the page.</p>
+</div>
+
 <blockquote><p>Essentially what a browser is doing is fetching code from a remote server and executing it in the user's browser. If it's not careful enough or isolated enough, the remote code can easily access data or files from the user's computer. Imagine you go to a website and you have no idea what the code of that website is — if browsers did not isolate environments, that code can easily get access to your file system, copy all your files, your sensitive details, and send it to their servers.</p></blockquote>
 
 <h3 class="sub">Wall two · CORS</h3>
 
 <blockquote><p>You can imagine CORS as a policy — a security policy of browsers — which restricts JavaScript code to call external APIs which are not the same as the current domain.</p></blockquote>
+
+<div class="plain">
+<p class="tag">Origin, and why this rule exists at all</p>
+<p>An <strong>origin</strong> is the combination of <strong>scheme</strong> (<code>https</code>), <strong>host</strong> (<code>frontend-demo.sriniously.xyz</code>) and <strong>port</strong> (<code>443</code>). Change any one and it's a different origin, even if it looks nearly identical to a human.</p>
+<p>The <strong>Same-Origin Policy</strong> says a script from one origin may not read responses from another. Here's why that's essential: your browser attaches your cookies to requests automatically. Without this rule, any random site you visited could quietly make a request to your bank, have your session cookie attached, and read your balance — from your own browser, fully authenticated. The rule doesn't protect the bank's server; it protects <em>you</em> from the page you're currently on.</p>
+<p><strong>CORS</strong> — <strong>C</strong>ross-<strong>O</strong>rigin <strong>R</strong>esource <strong>S</strong>haring — is the opt-out. It's the mechanism by which a server can say "actually, this specific other origin may read my responses." Despite the name, CORS <em>relaxes</em> the restriction; the restriction is the Same-Origin Policy.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>You're walking around carrying signed blank cheques (your cookies) that get used automatically. The Same-Origin Policy is the rule that a shop can only spend them on its own premises. CORS is the paperwork by which one shop explicitly authorises another to do so.</p>
+</div>
 
 <div class="dia">
 <svg viewBox="0 0 760 220" role="img" aria-label="Same origin policy — scheme, host and port must all match">
@@ -1283,9 +1807,36 @@ footer a{text-decoration:none}
 <p><strong><code>Access-Control-Allow-Origin: *</code> combined with credentials is invalid</strong> and browsers reject it. Reflecting the <code>Origin</code> header back without validating it is a common real-world vulnerability.</p>
 </div>
 
+<div class="plain">
+<p class="tag">Preflight, and the three misconceptions above</p>
+<p>A <strong>preflight</strong> is a small extra request the browser sends <em>first</em>, using the verb <code>OPTIONS</code>, asking permission before sending the real one. It exists because some requests cause changes — deleting something, say — and it would be no good discovering afterwards that you weren't allowed. A <strong>"simple" request</strong> (a basic GET, roughly) skips the preflight, since such requests were already possible before CORS existed.</p>
+<p><strong>Why "enforced by the browser" matters.</strong> CORS is a rule browsers voluntarily follow. The server sends headers; the browser chooses to obey them. <code>curl</code>, a Python script, or anything that isn't a browser simply ignores the whole system. So CORS can never protect an API from attackers — it only constrains scripts running in ordinary users' browsers. Treating it as access control is a genuinely dangerous mistake.</p>
+<p><strong>"Stops the response being read, not the request being sent."</strong> Subtle and important. For non-preflighted requests the server may have already acted before the browser blocks the reply. The attacker learns nothing, but the damage is done. <strong>CSRF</strong> (cross-site request forgery) is precisely that attack, and a <strong>CSRF token</strong> — an unguessable value the real page includes and a forged one can't know — is the separate defence needed for it.</p>
+<p><strong><code>*</code> means "any origin."</strong> Combining it with credentials would mean "any site may make authenticated requests as this user," which is the exact catastrophe the policy exists to prevent, so browsers refuse. The tempting shortcut — reading whatever <code>Origin</code> the caller sent and echoing it back as permitted — is the same catastrophe wearing a disguise, and it happens constantly.</p>
+</div>
+
 <h3 class="sub">Wall three · databases</h3>
 
 <blockquote><p>These drivers are written to work in environments that can handle socket connections, handle binary data, and maintain persistent connections. Things that browsers cannot do.</p></blockquote>
+
+<div class="plain">
+<p class="tag">Driver, wire protocol, connection, pool</p>
+<dl>
+<dt>Driver</dt>
+<dd>A small library that lets your program talk to a database. It translates your instructions into whatever format that particular database expects.</dd>
+<dt>Wire protocol</dt>
+<dd>The exact format of bytes sent over the connection. Databases use their own, not HTTP — designed for speed between trusted programs, not for the public web. Being <strong>binary</strong>, it can't be expressed as the text-over-HTTP that browsers are limited to.</dd>
+<dt>Connection</dt>
+<dd>An open, ongoing link to the database: authenticated once, then usable for many queries. Establishing one is genuinely expensive — a network handshake, encryption setup, a password check, and memory allocated on the database's side for your session.</dd>
+<dt>Connection pool</dt>
+<dd>A small set of those connections opened once at startup and reused forever. A request borrows one, runs its query, and returns it. Twenty connections can serve thousands of users a second, because each one only holds a connection for a few milliseconds.</dd>
+</dl>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>A pool is a rack of shared bikes at an office. Nobody buys a bike for a five-minute errand; you grab one, ride, put it back. Without a pool, every request buys and then destroys a bike. And the failure mode is the giveaway: it isn't that bikes get slow, it's that the shop can't build them fast enough and the queue collapses.</p>
+</div>
 
 <p>Database drivers speak binary wire protocols over raw TCP sockets, and browsers cannot open raw TCP. That alone settles it — but the connection pooling argument is the part most people haven't heard.</p>
 
@@ -1403,6 +1954,13 @@ footer a{text-decoration:none}
 <p class="cap"><b>Known hardware versus unknown hardware</b>Centralising heavy work means you only have to make one machine fast, and you can make it faster whenever you want.</p>
 </div>
 
+<div class="plain">
+<p class="tag">Vertical and horizontal scaling</p>
+<p><strong>Scaling</strong> means handling more load. <strong>Vertical</strong> is a bigger machine — more cores, more memory. Simple, but there's a ceiling, and it usually means downtime to switch. <strong>Horizontal</strong> is more machines working in parallel, with something in front sharing the work out (a <strong>load balancer</strong> — a reverse proxy again, wearing a different hat). Harder to build, effectively unlimited.</p>
+<p><strong>Business logic</strong> — the phrase in the quote — means the rules specific to what your application actually does, as opposed to plumbing: how a price is calculated, whether a booking is valid, what a report contains. It's the part worth protecting and the part most likely to be expensive to compute.</p>
+<p>The closing line is the one to keep: you can make your server twice as fast this afternoon. You cannot make your users' phones faster, ever.</p>
+</div>
+
 <h3 class="sub">All four together</h3>
 
 <div class="dia">
@@ -1459,6 +2017,148 @@ footer a{text-decoration:none}
 <text x="380" y="291" text-anchor="middle" font-family="IBM Plex Sans" font-size="13.5" font-weight="600" fill="#16202B">untrusted, constrained, and unknown</text>
 </svg>
 <p class="cap"><b>Four independent walls, one conclusion</b>Any one of these would be enough on its own. Together they mean the question isn't really "why not" — it's that there was never a path in the first place.</p>
+</div>
+</section>
+
+<!-- ══════════════ 6 ══════════════ -->
+<section id="glossary">
+<div class="part-rule"><span>Six</span></div>
+<h2 class="head">The whole thing in one paragraph, then every word defined</h2>
+
+<div class="plain">
+<p class="tag">The recap</p>
+<p>You type an address. Your browser asks <strong>DNS</strong> what IP that name maps to, and gets back a number — usually from a cache, occasionally by walking a hierarchy of nameservers. It opens a <strong>TCP</strong> connection to that number on port <strong>443</strong> and negotiates <strong>TLS</strong> encryption. The packets reach Amazon, where a <strong>security group</strong> checks the destination port against a short allow-list and silently drops anything else. What survives arrives at one rented <strong>EC2</strong> machine, where <strong>Nginx</strong> holds ports 80 and 443. Nginx decrypts the request, reads the <strong>Host</strong> header, matches it against its config files, and forwards the now-plaintext request over <strong>loopback</strong> to a <strong>Node</strong> process listening on port 3001 — a process kept alive by <strong>PM2</strong>, on a port the outside world cannot reach. That process queries a <strong>database</strong> through a pooled connection, builds some <strong>JSON</strong>, and hands it back. The reply retraces every hop in reverse, gets re-encrypted by Nginx on the way out, and appears in your browser. A second address on the same machine, differing only by one number in one config line, serves the frontend instead.</p>
+</div>
+
+<h3 class="sub">Glossary</h3>
+
+<details class="jargon" open>
+<summary>Network and addressing</summary>
+<div class="body">
+<dl>
+<dt>IP address</dt><dd>A number identifying one machine on a network. Public ones are reachable worldwide; private ones (<code>10.*</code>, <code>172.16–31.*</code>, <code>192.168.*</code>) only within a local network.</dd>
+<dt>Port</dt><dd>A number 0–65535 identifying which process on a machine should receive a message.</dd>
+<dt>Loopback / localhost / <code>127.0.0.1</code></dt><dd>An address meaning "this same machine." Traffic never reaches a network cable.</dd>
+<dt>TCP</dt><dd>The protocol beneath HTTP that splits data into packets and guarantees ordered, complete delivery.</dd>
+<dt>Packet</dt><dd>One chunk of a message in transit.</dd>
+<dt>CIDR</dt><dd>Notation for a range of addresses, e.g. <code>0.0.0.0/0</code> = all of them.</dd>
+<dt>VPC</dt><dd>A private network inside a cloud provider, isolated from other customers.</dd>
+</dl>
+</div>
+</details>
+
+<details class="jargon">
+<summary>Names and DNS</summary>
+<div class="body">
+<dl>
+<dt>Domain / subdomain</dt><dd>A human-readable name; a subdomain is a prefix you can freely invent and point anywhere.</dd>
+<dt>DNS</dt><dd>The system translating names into IP addresses.</dd>
+<dt>A record</dt><dd>A DNS entry giving an IP address directly.</dd>
+<dt>CNAME</dt><dd>A DNS entry giving another name, which must then itself be looked up.</dd>
+<dt>TXT record</dt><dd>Free text on a domain, used for ownership proofs and email policy (SPF).</dd>
+<dt>Resolver</dt><dd>The server that does the lookup legwork on your behalf, usually your ISP's.</dd>
+<dt>TTL</dt><dd>How many seconds a DNS answer may be cached before being re-fetched.</dd>
+<dt>Authoritative nameserver</dt><dd>The server holding the real record; its answer is final.</dd>
+<dt>DNSSEC</dt><dd>Cryptographic signing of DNS answers so forgery is detectable.</dd>
+</dl>
+</div>
+</details>
+
+<details class="jargon">
+<summary>HTTP and the web</summary>
+<div class="body">
+<dl>
+<dt>HTTP / HTTPS</dt><dd>The web's protocol; the S means encrypted with TLS.</dd>
+<dt>TLS (formerly SSL)</dt><dd>Encryption plus identity verification for network connections.</dd>
+<dt>Certificate</dt><dd>A signed file proving control of a domain; produces the padlock.</dd>
+<dt>Let's Encrypt / Certbot</dt><dd>A free certificate authority, and the tool that automates getting and renewing certificates.</dd>
+<dt>Request / response</dt><dd>One round trip: what you ask for, and what comes back.</dd>
+<dt>Header</dt><dd>A labelled metadata line on a request or response.</dd>
+<dt>Body</dt><dd>The actual content — HTML, JSON, image bytes.</dd>
+<dt>Verb / method</dt><dd>The first word of a request: GET (fetch), POST/PUT (send), DELETE, OPTIONS.</dd>
+<dt>Status code</dt><dd>200 success · 301/302 redirect · 401/403 not allowed · 404 missing · 500 server error.</dd>
+<dt>Host header</dt><dd>The domain the browser thinks it's talking to; how one machine serves many sites.</dd>
+<dt>Cookie</dt><dd>Small data the browser stores per site and re-sends automatically. <code>HttpOnly</code> hides it from JavaScript.</dd>
+<dt>Stateless</dt><dd>The server remembers nothing between requests; identity is re-presented each time.</dd>
+<dt>JSON</dt><dd>A text format for structured data exchanged between programs.</dd>
+<dt>ETag</dt><dd>A content fingerprint letting a browser ask "has this changed?" cheaply.</dd>
+<dt>Keep-alive</dt><dd>Reusing one TCP connection for several requests instead of reconnecting.</dd>
+</dl>
+</div>
+</details>
+
+<details class="jargon">
+<summary>Servers and infrastructure</summary>
+<div class="body">
+<dl>
+<dt>Client / server</dt><dd>Whoever asks; whoever answers. Roles, not hardware types.</dd>
+<dt>Process</dt><dd>A running program. Its PID is the OS's number for it.</dd>
+<dt>Bind / listen</dt><dd>Claim a port and wait for traffic addressed to it.</dd>
+<dt>AWS / EC2 / instance</dt><dd>Amazon's cloud; its rent-a-computer product; one such rented virtual machine.</dd>
+<dt>Deploy</dt><dd>Put code onto a server and run it there.</dd>
+<dt>SSH</dt><dd>Encrypted remote terminal access to a machine.</dd>
+<dt>Firewall / security group</dt><dd>A filter deciding which traffic reaches the machine. AWS's is called a security group. Default deny: list what's allowed, everything else is dropped.</dd>
+<dt>Stateful firewall</dt><dd>Remembers approved connections, so replies are automatically allowed back.</dd>
+<dt>Reverse proxy</dt><dd>A server in front of other servers, receiving all requests and forwarding them inward.</dd>
+<dt>Nginx</dt><dd>The most common reverse proxy software.</dd>
+<dt>Terminating TLS</dt><dd>Decrypting at the proxy and forwarding plaintext internally.</dd>
+<dt>Config</dt><dd>Text files controlling how a program behaves.</dd>
+<dt>Process manager (PM2, systemd)</dt><dd>Keeps programs running: restarts after crashes and reboots, collects logs.</dd>
+<dt>Docker / container / Kubernetes</dt><dd>Packaging an app with its dependencies; the sealed unit that results; the system for running many of them across many machines.</dd>
+<dt>Scaling, vertical vs horizontal</dt><dd>Bigger machine vs more machines.</dd>
+<dt>Load balancer</dt><dd>Distributes incoming requests across several machines.</dd>
+<dt>curl</dt><dd>Command-line tool that makes an HTTP request and prints the raw response.</dd>
+</dl>
+</div>
+</details>
+
+<details class="jargon">
+<summary>Frontend</summary>
+<div class="body">
+<dl>
+<dt>HTML / CSS / JavaScript</dt><dd>Structure, appearance, behaviour.</dd>
+<dt>DOM</dt><dd>The browser's live model of the page; JavaScript edits it to change what you see.</dd>
+<dt>React / Next.js</dt><dd>A library for building interfaces; a framework built on it that also runs a server process.</dd>
+<dt>Waterfall</dt><dd>The DevTools chart showing when each request started and how long it took.</dd>
+<dt>Chunk / bundle</dt><dd>JavaScript split into pieces so each page downloads only what it needs.</dd>
+<dt>Paint / hydrate</dt><dd>When the page looks right; when it starts working.</dd>
+<dt>Runtime</dt><dd>The environment code executes in — Node on your server, the browser on theirs.</dd>
+<dt>Sandbox</dt><dd>The browser's restricted environment: no file system, no env vars, no raw sockets, no listening ports.</dd>
+<dt>localStorage</dt><dd>Small per-site storage in the browser that survives refreshes.</dd>
+<dt>fetch()</dt><dd>The JavaScript function for making HTTP requests.</dd>
+<dt>DevTools</dt><dd>The browser's built-in inspection panel. <code>F12</code> or right-click → Inspect.</dd>
+</dl>
+</div>
+</details>
+
+<details class="jargon">
+<summary>Security</summary>
+<div class="body">
+<dl>
+<dt>Authentication vs authorization</dt><dd>Who are you, vs what are you allowed to do. Different questions, both server-side.</dd>
+<dt>Origin</dt><dd>Scheme + host + port. All three must match to be "the same origin."</dd>
+<dt>Same-Origin Policy</dt><dd>Browser rule stopping a script reading responses from another origin. Protects users.</dd>
+<dt>CORS</dt><dd>The mechanism by which a server opts out of that restriction for named origins. Browser-enforced only.</dd>
+<dt>Preflight</dt><dd>An <code>OPTIONS</code> request asking permission before sending a real one.</dd>
+<dt>CSRF</dt><dd>Tricking a user's browser into making a state-changing request; countered by unguessable tokens.</dd>
+<dt>XSS</dt><dd>Injecting malicious JavaScript into a page; countered largely by Content-Security-Policy.</dd>
+<dt>Clickjacking</dt><dd>Invisibly embedding your page in another to steal clicks; countered by X-Frame-Options.</dd>
+<dt>SSRF</dt><dd>Tricking a server into making a request on your behalf, often to reach internal resources.</dd>
+<dt>IAM credentials</dt><dd>Cloud permission keys. The prize in most cloud breaches.</dd>
+<dt>IMDS / IMDSv2</dt><dd>The EC2 self-metadata service and its hardened version requiring a token first.</dd>
+<dt>DNS hijacking / cache poisoning</dt><dd>Changing a record at source; feeding a resolver a forged answer.</dd>
+<dt>CVE</dt><dd>A publicly catalogued vulnerability with an ID number.</dd>
+<dt>Information disclosure</dt><dd>Leaking software names and versions that make attacks easier to aim.</dd>
+<dt>HSTS / CSP / X-Frame-Options</dt><dd>Three response headers: force HTTPS; restrict script sources; forbid embedding.</dd>
+<dt>Brute force</dt><dd>Automated mass guessing of credentials. Constant on any exposed port 22.</dd>
+<dt>Bastion / jump box</dt><dd>One hardened machine that's the only way in.</dd>
+</dl>
+</div>
+</details>
+
+<div class="key">
+<p class="tag">If you remember three things</p>
+<p><strong>One</strong> — a server is a process on a computer, listening on a port, and everything else is a way of getting a message to it. <strong>Two</strong> — the only public doors are 80 and 443; everything interesting listens on ports nobody outside can reach. <strong>Three</strong> — code in a browser runs on hardware you don't own, so nothing it holds is secret and nothing it checks is trusted. Every wall in section five is a restatement of that third fact.</p>
 </div>
 </section>
 

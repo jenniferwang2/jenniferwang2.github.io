@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Status codes, caching and the rest of HTTP — Backend From First Principles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF1F4; --card:#FFF;
+  --ink:#16202B; --ink-soft:#53616F; --ink-faint:#8695A3;
+  --rule:#CBD4DC; --rule-soft:#DDE3E9;
+  --teal:#0E6E7E; --teal-deep:#0A4F5B; --teal-wash:#DCEAEC;
+  --amber:#9C4A18; --amber-wash:#F6E8DE;
+  --green:#2D7D5A; --green-wash:#DCEBE3;
+  --red:#B04A3F; --red-wash:#F7E3E0;
+  --violet:#5B4B8A; --violet-wash:#E4E0EF;
+  --term:#131C25;
+  --measure:70ch;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:17px;line-height:1.65;
+  -webkit-font-smoothing:antialiased}
+.shell{max-width:1180px;margin:0 auto;padding:0 28px}
+
+.serieshead{display:flex;align-items:center;gap:14px;padding:26px 0 0;text-decoration:none}
+.serieshead .dot{width:7px;height:7px;background:var(--teal);border-radius:50%}
+.serieshead span{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;color:var(--ink-faint)}
+.serieshead:hover span{color:var(--teal)}
+
+.mast{border-bottom:1px solid var(--rule);padding:48px 0 44px}
+.mast .kicker{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.06em;color:var(--teal);margin:0 0 18px}
+.mast h1{font-family:'IBM Plex Serif',Georgia,serif;font-weight:600;
+  font-size:clamp(34px,5.4vw,58px);line-height:1.06;letter-spacing:-.02em;margin:0 0 20px;max-width:17ch}
+.mast .standfirst{font-family:'IBM Plex Serif',Georgia,serif;font-size:19px;line-height:1.62;
+  color:var(--ink-soft);max-width:58ch;margin:0}
+.mast .standfirst em{color:var(--ink);font-style:italic}
+
+.contents{border:1px solid var(--rule);background:var(--card);padding:26px 30px 30px;margin:38px 0 60px;max-width:540px}
+.contents h2{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.06em;color:var(--ink-faint);margin:0 0 14px;font-weight:500}
+.contents ol{margin:0;padding:0;list-style:none;counter-reset:toc}
+.contents li{counter-increment:toc;border-top:1px solid var(--rule-soft)}
+.contents li:first-child{border-top:none}
+.contents a{display:flex;gap:14px;align-items:baseline;padding:9px 0;text-decoration:none;color:var(--ink)}
+.contents a:hover{color:var(--teal)}
+.contents a::before{content:counter(toc,decimal-leading-zero);font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--teal)}
+
+section{padding:8px 0 60px}
+.part-rule{display:flex;align-items:center;gap:16px;margin:56px 0 26px}
+.part-rule span{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.06em;color:var(--teal);white-space:nowrap}
+.part-rule::after{content:"";height:1px;background:var(--rule);flex:1}
+
+h2.head{font-family:'IBM Plex Serif',Georgia,serif;font-size:clamp(26px,3.4vw,36px);
+  font-weight:600;letter-spacing:-.015em;line-height:1.15;margin:0 0 22px;max-width:24ch}
+h3.sub{font-size:20px;font-weight:600;margin:44px 0 14px;letter-spacing:-.005em}
+h4.minor{font-size:16.5px;font-weight:600;margin:30px 0 10px}
+p{margin:0 0 18px;max-width:var(--measure)}
+ul,ol{max-width:var(--measure);padding-left:22px}
+li{margin-bottom:8px}
+a{color:var(--teal)}
+code{font-family:'IBM Plex Mono',monospace;font-size:.875em;background:#E2E7EC;padding:1px 5px;border-radius:2px}
+
+.hop{display:flex;gap:18px;align-items:flex-start;margin:56px 0 20px}
+.hop-num{flex:0 0 auto;width:44px;height:44px;border:1px solid var(--teal);color:var(--teal);
+  display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:16px}
+.hop-txt h3{font-family:'IBM Plex Serif',Georgia,serif;font-size:27px;font-weight:600;margin:0 0 4px;line-height:1.2}
+.hop-txt p{margin:0;color:var(--ink-soft);font-size:15px;font-family:'IBM Plex Mono',monospace}
+
+figure{margin:34px 0;background:var(--card);border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+figure img{display:block;width:100%;height:auto}
+figcaption{padding:16px 22px 18px;border-top:1px solid var(--rule-soft);font-size:14.5px;line-height:1.55;color:var(--ink-soft)}
+figcaption b{display:block;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.05em;color:var(--teal);font-weight:500;margin-bottom:6px}
+
+.dia{margin:34px 0;background:var(--card);border:1px solid var(--rule);border-radius:3px;padding:26px 24px 20px}
+.dia svg{display:block;width:100%;height:auto}
+.dia .cap{margin:18px 0 0;padding-top:14px;border-top:1px solid var(--rule-soft);
+  font-size:14px;line-height:1.55;color:var(--ink-soft);max-width:none}
+.dia .cap b{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.05em;color:var(--teal);font-weight:500;display:block;margin-bottom:5px}
+
+pre{background:var(--term);color:#D6DEE6;font-family:'IBM Plex Mono',monospace;font-size:12.5px;
+  line-height:1.55;padding:22px 24px;overflow-x:auto;margin:26px 0;border-radius:3px}
+pre b{color:#7FD4C1;font-weight:500}
+pre i{color:#7C8A97;font-style:normal}
+pre u{color:#E8B48A;text-decoration:none}
+pre s{color:#C5A3E0;text-decoration:none}
+
+.tbl{margin:26px 0;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{text-align:left;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.05em;
+  color:var(--ink-faint);font-weight:500;padding:0 16px 9px 0;border-bottom:1px solid var(--rule);white-space:nowrap}
+td{padding:11px 16px 11px 0;border-bottom:1px solid var(--rule-soft);vertical-align:top}
+td code{font-size:12.5px;background:transparent;padding:0;color:var(--teal-deep)}
+tr:last-child td{border-bottom:none}
+
+blockquote{margin:30px 0;padding:2px 0 2px 24px;border-left:2px solid var(--rule);max-width:64ch;
+  font-family:'IBM Plex Serif',Georgia,serif;font-size:18px;line-height:1.6;color:var(--ink-soft);font-style:italic}
+blockquote p{margin:0;max-width:none}
+
+.sec{background:var(--amber-wash);border-left:2px solid var(--amber);padding:20px 24px;margin:30px 0;max-width:var(--measure)}
+.sec .tag{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--amber);margin-bottom:8px}
+.sec p{margin-bottom:12px;font-size:15.5px}
+.sec p:last-child{margin-bottom:0}
+.sec code{background:#EFDECF}
+
+.key{background:var(--teal-wash);border-left:2px solid var(--teal);padding:20px 24px;margin:30px 0;max-width:var(--measure)}
+.key .tag{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--teal-deep);margin-bottom:8px}
+.key p{margin:0;font-size:15.5px}
+.key code{background:#CADFE2}
+
+.annot{border-left:2px solid var(--teal);padding:4px 0 4px 20px;margin:26px 0;max-width:var(--measure)}
+.annot p:last-child{margin-bottom:0}
+.annot .lead{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.05em;color:var(--teal);margin-bottom:10px}
+
+/* ── beginner layer ── */
+.plain{background:var(--card);border:1px solid var(--rule);border-left:2px solid var(--violet);
+  padding:20px 24px;margin:28px 0;max-width:var(--measure)}
+.plain .tag{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--violet);margin-bottom:10px}
+.plain p{margin-bottom:12px;font-size:15.5px}
+.plain p:last-child{margin-bottom:0}
+.plain ul,.plain ol{font-size:15.5px;margin:0 0 12px}
+.plain code{background:#E9E5F3}
+.plain dl{margin:0;font-size:15.5px}
+.plain dt{font-weight:600;margin-top:12px}
+.plain dt:first-child{margin-top:0}
+.plain dd{margin:3px 0 0;color:var(--ink-soft)}
+
+.anal{background:var(--green-wash);border-left:2px solid var(--green);padding:18px 24px;margin:26px 0;max-width:var(--measure)}
+.anal .tag{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--green);margin-bottom:8px}
+.anal p{margin:0;font-size:15.5px}
+.anal code{background:#C9DFD3}
+
+.jargon{margin:26px 0;max-width:var(--measure);border:1px solid var(--rule);background:var(--card)}
+.jargon summary{cursor:pointer;padding:14px 20px;font-family:'IBM Plex Mono',monospace;font-size:12px;
+  letter-spacing:.05em;color:var(--teal);list-style:none}
+.jargon summary::-webkit-details-marker{display:none}
+.jargon summary::before{content:"▸ ";color:var(--teal)}
+.jargon[open] summary::before{content:"▾ "}
+.jargon summary:hover{background:#F6F8F9}
+.jargon .body{padding:4px 20px 18px;border-top:1px solid var(--rule-soft)}
+.jargon dl{margin:0;font-size:15px}
+.jargon dt{font-weight:600;margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:13.5px;color:var(--teal-deep)}
+.jargon dt:first-child{margin-top:12px}
+.jargon dd{margin:4px 0 0;color:var(--ink-soft);max-width:66ch}
+
+.primer{border:1px solid var(--teal);background:var(--card);padding:30px 32px 34px;margin:38px 0 56px}
+.primer h2{font-family:'IBM Plex Serif',Georgia,serif;font-size:28px;font-weight:600;margin:0 0 6px}
+.primer .lede{color:var(--ink-soft);font-size:15.5px;margin:0 0 24px;max-width:62ch}
+.primer h3{font-size:17px;font-weight:600;margin:26px 0 8px}
+.primer p{font-size:15.5px}
+
+footer{border-top:1px solid var(--rule);padding:40px 0 80px;margin-top:40px;font-size:14.5px;color:var(--ink-faint)}
+footer a{text-decoration:none}
+.nextprev{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:26px}
+.nextprev a{display:block;border:1px solid var(--rule);background:var(--card);padding:16px 20px;
+  text-decoration:none;color:var(--ink);flex:1;min-width:240px}
+.nextprev a:hover{border-color:var(--teal)}
+.nextprev .lbl{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.05em;color:var(--teal);display:block;margin-bottom:5px}
+.nextprev .ttl{font-family:'IBM Plex Serif',Georgia,serif;font-size:16.5px;font-weight:600}
+
+@media (max-width:820px){
+  body{font-size:16px}
+  .shell{padding:0 18px}
+  .dia{padding:18px 14px 14px}
+  pre{font-size:11px;padding:16px}
+  .hop{gap:14px}
+  .hop-num{width:38px;height:38px;font-size:14px}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<a class="serieshead" href="./"><span class="dot"></span><span>BACKEND FROM FIRST PRINCIPLES · POST 05</span></a>
+
+<header class="mast">
+  <p class="kicker">Backend from first principles · annotated walkthrough</p>
+  <h1>Status codes, caching, and the rest of HTTP</h1>
+  <p class="standfirst">Every status code you'll actually meet and when to fire it, how conditional caching really works, how a client and server negotiate format and language, why compression is not optional, and how files too big for one message get moved. <em>Part two of two.</em></p>
+</header>
+
+<nav class="contents">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#primer">Start here: three ideas</a></li>
+    <li><a href="#why-codes">Why status codes exist</a></li>
+    <li><a href="#families">The five families, code by code</a></li>
+    <li><a href="#demo">Seeing them fire</a></li>
+    <li><a href="#caching">HTTP caching</a></li>
+    <li><a href="#negotiation">Content negotiation</a></li>
+    <li><a href="#compression">Compression</a></li>
+    <li><a href="#keepalive">Persistent connections</a></li>
+    <li><a href="#large">Large requests and responses</a></li>
+    <li><a href="#tls">SSL, TLS and HTTPS</a></li>
+    <li><a href="#glossary">Recap and glossary</a></li>
+  </ol>
+</nav>
+
+<blockquote><p>This part this 200 OK — what are these, and why are they needed? HTTP response codes exist to communicate the result of a request in a standardized way. You can just look at the response code and see whether the request was successful or not, or what is the state of the server, without looking into the body.</p></blockquote>
+
+<!-- ══════════════ 0 ══════════════ -->
+<section id="primer">
+<div class="part-rule"><span>Zero</span></div>
+<h2 class="head">Start here: three ideas</h2>
+
+<p>Post 04 covered what an HTTP message is: a start line, headers, a blank line, a body. This post is about the things that ride on top of that structure. Three concepts carry most of it.</p>
+
+<div class="primer">
+<h2>Status code, cache, negotiation</h2>
+<p class="lede">If you've read post 04 you've met all three in passing. Here they each get a section, so it's worth fixing what they mean first.</p>
+
+<h3>1 · A status code is a machine-readable verdict</h3>
+<p>Three digits at the start of every response saying how it went. The point is that a program can act on the number <em>without reading the body at all</em>. A human can read "sorry, you need to log in"; a program cannot reliably parse that sentence, but it can absolutely branch on <code>401</code>. The code is the part of the response designed for software.</p>
+
+<h3>2 · A cache is a saved copy kept to avoid asking again</h3>
+<p>Caching turns "fetch this from a server across the world" into "read this from memory." It is the single largest performance lever on the web, and the whole discipline reduces to one hard question: <em>how do you know the copy you saved is still correct?</em> Everything in section four is machinery for answering that.</p>
+
+<h3>3 · Negotiation is the two sides agreeing on a format</h3>
+<p>One URL, several possible representations — JSON or XML, English or Spanish, compressed or not. Rather than inventing separate URLs for each, the client states its preferences in headers and the server picks. The resource is the same; only its clothing changes.</p>
+</div>
+
+<div class="anal">
+<p class="tag">The analogy this post runs on</p>
+<p>Ordering from a large catalogue by post. The <strong>status code</strong> is the stamped verdict on the reply slip — <em>shipped</em>, <em>out of stock</em>, <em>your form was incomplete</em>, <em>warehouse on fire</em> — readable at a glance without opening the envelope. <strong>Caching</strong> is keeping last month's catalogue and only asking "has anything changed since the 27th?" instead of requesting a whole new one. <strong>Negotiation</strong> is ticking boxes on the order form for language and format, and getting your copy in Spanish without a different catalogue existing.</p>
+</div>
+</section>
+
+<!-- ══════════════ 1 ══════════════ -->
+<section id="why-codes">
+<div class="part-rule"><span>One</span></div>
+<h2 class="head">Why status codes exist</h2>
+
+<blockquote><p>If the request was successful then I would have expected this structure; if the request was unsuccessful then I would have expected this structure; if the server crashed then I would have expected a null object. We don't have to make those decisions — we can judge by these status codes.</p></blockquote>
+
+<div class="plain">
+<p class="tag">What that's describing</p>
+<p>Imagine status codes didn't exist. Every response would arrive as a body and nothing else, and the client would have to work out what happened by inspecting it. Did the JSON contain an <code>error</code> key? Was the body empty because nothing matched, or because the server fell over? Does <code>{"result": null}</code> mean "no such user" or "user exists but has no name"?</p>
+<p>Every API would answer those differently, so every client would need bespoke guessing logic per service. Status codes replace all that with one number that every server on earth is expected to use the same way.</p>
+</div>
+
+<blockquote><p>They also help clients handle errors by providing specific codes to identify the problem. For example, unauthorized access will return 401, so now the client can check whether it is 401 and it can log the user out, saying "you have to log in again." Or if it was a bad request error because of an invalid value through a form submission, the client can ask the user to make changes and resubmit.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 290" role="img" aria-label="Client behaviour branching on status code">
+<defs><marker id="c1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<rect x="290" y="14" width="180" height="38" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.6"/>
+<text x="380" y="38" text-anchor="middle" font-family="IBM Plex Sans" font-size="13.5" font-weight="600" fill="#16202B">a response arrives</text>
+
+<line x1="380" y1="52" x2="380" y2="70" stroke="#0E6E7E" stroke-width="1.4"/>
+<line x1="90" y1="70" x2="670" y2="70" stroke="#0E6E7E" stroke-width="1.4"/>
+<line x1="90" y1="70" x2="90" y2="88" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#c1)"/>
+<line x1="235" y1="70" x2="235" y2="88" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#c1)"/>
+<line x1="380" y1="70" x2="380" y2="88" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#c1)"/>
+<line x1="525" y1="70" x2="525" y2="88" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#c1)"/>
+<line x1="670" y1="70" x2="670" y2="88" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#c1)"/>
+
+<rect x="22" y="90" width="136" height="44" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="90" y="112" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="600" fill="#16202B">200</text>
+<text x="90" y="127" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#2D7D5A">success</text>
+
+<rect x="167" y="90" width="136" height="44" rx="3" fill="#F6E8DE" stroke="#9C4A18"/>
+<text x="235" y="112" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="600" fill="#16202B">401</text>
+<text x="235" y="127" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#9C4A18">unauthorized</text>
+
+<rect x="312" y="90" width="136" height="44" rx="3" fill="#F6E8DE" stroke="#9C4A18"/>
+<text x="380" y="112" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="600" fill="#16202B">400</text>
+<text x="380" y="127" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#9C4A18">bad request</text>
+
+<rect x="457" y="90" width="136" height="44" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="525" y="112" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="600" fill="#16202B">429</text>
+<text x="525" y="127" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#B04A3F">too many requests</text>
+
+<rect x="602" y="90" width="136" height="44" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="670" y="112" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="600" fill="#16202B">500</text>
+<text x="670" y="127" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#B04A3F">server error</text>
+
+<line x1="90" y1="136" x2="90" y2="164" stroke="#8695A3" stroke-width="1.2" marker-end="url(#c1)"/>
+<line x1="235" y1="136" x2="235" y2="164" stroke="#8695A3" stroke-width="1.2" marker-end="url(#c1)"/>
+<line x1="380" y1="136" x2="380" y2="164" stroke="#8695A3" stroke-width="1.2" marker-end="url(#c1)"/>
+<line x1="525" y1="136" x2="525" y2="164" stroke="#8695A3" stroke-width="1.2" marker-end="url(#c1)"/>
+<line x1="670" y1="136" x2="670" y2="164" stroke="#8695A3" stroke-width="1.2" marker-end="url(#c1)"/>
+
+<rect x="22" y="166" width="136" height="64" rx="3" fill="#F8FAFB" stroke="#CBD4DC"/>
+<text x="90" y="192" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">render the</text>
+<text x="90" y="208" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">data</text>
+
+<rect x="167" y="166" width="136" height="64" rx="3" fill="#F8FAFB" stroke="#CBD4DC"/>
+<text x="235" y="188" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">clear the token,</text>
+<text x="235" y="204" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">send them to</text>
+<text x="235" y="220" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">the login screen</text>
+
+<rect x="312" y="166" width="136" height="64" rx="3" fill="#F8FAFB" stroke="#CBD4DC"/>
+<text x="380" y="188" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">highlight the</text>
+<text x="380" y="204" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">form field and</text>
+<text x="380" y="220" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">ask them to fix it</text>
+
+<rect x="457" y="166" width="136" height="64" rx="3" fill="#F8FAFB" stroke="#CBD4DC"/>
+<text x="525" y="188" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">back off and</text>
+<text x="525" y="204" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">retry later</text>
+
+<rect x="602" y="166" width="136" height="64" rx="3" fill="#F8FAFB" stroke="#CBD4DC"/>
+<text x="670" y="188" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">show an apology,</text>
+<text x="670" y="204" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">log it, alert</text>
+<text x="670" y="220" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#16202B">someone</text>
+
+<text x="380" y="262" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">Five completely different behaviours, chosen from three digits, before the body has been looked at.</text>
+<text x="380" y="282" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#0E6E7E">That branching is the entire reason the codes exist.</text>
+</svg>
+<p class="cap"><b>What the client does with the number</b>Note that the right answer differs wildly: one means retry, one means don't retry, one means fix your input, one means log the user out. Guessing from a message string could never be this reliable.</p>
+</div>
+
+<blockquote><p>HTTP response codes are standardized across all web services, enabling consistency in how servers communicate with different clients regardless of the platform or language used. It does not matter whether you are making a server in Python or Go or Rust or JavaScript or Ruby — you have to follow this standard.</p></blockquote>
+
+<div class="key">
+<p class="tag">The part that makes it a standard rather than a convention</p>
+<p>Nothing technically stops you returning <code>200 OK</code> with <code>{"error": "not found"}</code> in the body. Plenty of real APIs do exactly that, and it's considered a design smell for a reason: every cache, proxy, monitoring tool, retry library and browser in the path now believes your failure was a success. It will be cached. It won't be retried. It won't appear in your error rate. The code isn't only for your client — it's for every piece of software the response passes through.</p>
+</div>
+</section>
+
+<!-- ══════════════ 2 ══════════════ -->
+<section id="families">
+<div class="part-rule"><span>Two</span></div>
+<h2 class="head">The five families, code by code</h2>
+
+<blockquote><p>On a high level, response codes are three-digit numbers. They could either start with 1, 2, 3, 4 or 5, and depending on the starting digit we categorize them as different types.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 340" role="img" aria-label="The five status code families">
+<text x="220" y="42" text-anchor="middle" font-family="IBM Plex Sans" font-size="15" fill="#5B4B8A">Information</text>
+<ellipse cx="180" cy="86" rx="72" ry="36" fill="none" stroke="#B04A3F" stroke-width="2.2"/>
+<text x="180" y="102" text-anchor="middle" font-family="IBM Plex Sans" font-size="44" font-weight="600" fill="#5B8ABF">1xx</text>
+
+<text x="430" y="82" text-anchor="middle" font-family="IBM Plex Sans" font-size="15" fill="#2D7D5A">Success</text>
+<text x="430" y="140" text-anchor="middle" font-family="IBM Plex Sans" font-size="44" font-weight="600" fill="#D08A3A">2xx</text>
+
+<text x="660" y="52" text-anchor="middle" font-family="IBM Plex Sans" font-size="15" fill="#2D7D5A">Redirection</text>
+<text x="660" y="110" text-anchor="middle" font-family="IBM Plex Sans" font-size="44" font-weight="600" fill="#5FAF87">3xx</text>
+
+<text x="240" y="224" text-anchor="middle" font-family="IBM Plex Sans" font-size="15" fill="#2D7D5A">Client error</text>
+<text x="240" y="288" text-anchor="middle" font-family="IBM Plex Sans" font-size="48" font-weight="600" fill="#E8A0A0">4xx</text>
+
+<text x="610" y="204" text-anchor="middle" font-family="IBM Plex Sans" font-size="15" fill="#2D7D5A">Server error</text>
+<text x="610" y="268" text-anchor="middle" font-family="IBM Plex Sans" font-size="48" font-weight="600" fill="#E86A7C">5xx</text>
+
+<line x1="16" y1="312" x2="744" y2="312" stroke="#DDE3E9"/>
+<text x="16" y="332" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">The most useful split is 4 versus 5: 4xx means <tspan font-weight="600">you sent something wrong</tspan>, 5xx means <tspan font-weight="600">I broke</tspan>. That tells you which side to go and look at.</text>
+</svg>
+<p class="cap"><b>The whiteboard slide, redrawn</b>The first digit alone is enough to decide roughly what to do. The remaining two digits refine it.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>Calling a shop. <strong>1xx</strong> is "hold on, still listening." <strong>2xx</strong> is "done." <strong>3xx</strong> is "we've moved, try the other branch." <strong>4xx</strong> is "you've asked for something that doesn't exist, or you're not a member, or you've filled the form in wrong." <strong>5xx</strong> is "our till is on fire, please call back." You react quite differently to each, and you learn which it is in the first two seconds of the call.</p>
+</div>
+
+<h3 class="sub">1xx · informational</h3>
+
+<blockquote><p>This code is sent by the server to indicate that it has received the headers and the client can proceed to send the request body. Commonly used in large uploads. There is also 101, for switching protocols — upgrading from HTTP to WebSocket. These are not the mostly used response codes you will encounter day to day.</p></blockquote>
+
+<div class="plain">
+<p class="tag">Why 1xx barely appears, and the one place it matters</p>
+<p>These are <strong>provisional</strong> responses: the exchange isn't over, the server is just saying something mid-flight. You'll rarely see them, and almost never write one.</p>
+<dl>
+<dt><code>100 Continue</code></dt>
+<dd>Only useful with a large upload. The client sends headers first, including <code>Expect: 100-continue</code>, and pauses. If the server would reject it anyway — wrong content type, too large, not authenticated — it says so <em>before</em> the client wastes bandwidth pushing 900 MB up the wire. If all is well it replies <code>100 Continue</code> and the client sends the body.</dd>
+<dt><code>101 Switching Protocols</code></dt>
+<dd>The handshake that turns an HTTP connection into a WebSocket. Recall post 04's point that the server can't speak first — this code is the moment that rule is escaped. The client asks to upgrade, the server agrees with 101, and from then on it isn't HTTP any more.</dd>
+</dl>
+</div>
+
+<h3 class="sub">2xx · success</h3>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Code</th><th>Name</th><th>Fire it when</th></tr></thead>
+<tbody>
+<tr><td><code>200</code></td><td>OK</td><td>The request succeeded and there's a body to return. The default.</td></tr>
+<tr><td><code>201</code></td><td>Created</td><td>A <strong>new resource now exists</strong> as a result. Usually a POST.</td></tr>
+<tr><td><code>204</code></td><td>No Content</td><td>It worked, and there is deliberately nothing to send back.</td></tr>
+</tbody>
+</table>
+</div>
+
+<blockquote><p>201 indicates that the request has been fulfilled and resulted in the creation of a new resource — for example a POST request or a new form submission. Then we have 204, that we just saw in the CORS flow when we send an OPTIONS pre-flight request. We also sometimes use it for DELETE: the client makes a delete request, you delete the resource, and the server says "I've deleted it but there is no content to return."</p></blockquote>
+
+<div class="plain">
+<p class="tag">200 vs 201 vs 204, since the distinction is subtle</p>
+<p>All three mean success. What differs is what the client should do next.</p>
+<p><strong>200</strong> says "here's your answer" — go and read the body. <strong>201</strong> says "something now exists that didn't before," and conventionally comes with a <code>Location</code> header pointing at the new thing, so the client knows where to find it. <strong>204</strong> says "don't bother reading the body, there isn't one" — which is genuinely useful, because it tells the client to skip parsing entirely rather than choking on an empty string.</p>
+<p>The 204 on a CORS preflight from post 04 is exactly this: the answer was entirely in the headers, and a body would have been pointless.</p>
+</div>
+
+<h3 class="sub">3xx · redirection</h3>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Code</th><th>Name</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>301</code></td><td>Moved Permanently</td><td>It lives at a new URL from now on. Update your links.</td></tr>
+<tr><td><code>302</code></td><td>Found / temporary</td><td>Go here for now, but keep using the original next time.</td></tr>
+<tr><td><code>304</code></td><td>Not Modified</td><td>Nothing changed — use the copy you already have.</td></tr>
+</tbody>
+</table>
+</div>
+
+<blockquote><p>Let's say initially you had a route called <code>/user</code> and eventually you decided to move that route to <code>/person</code>. In order to maintain backwards compatibility, so that old users or old applications still using this route don't break, you add a 301 response for this route and redirect them to the <code>/person</code> route. It is a permanent redirect.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 240" role="img" aria-label="301 permanent versus 302 temporary redirect">
+<defs><marker id="c2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#0E6E7E">301 — PERMANENT</text>
+<rect x="16" y="32" width="110" height="30" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="71" y="52" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">/user</text>
+<line x1="128" y1="47" x2="178" y2="47" stroke="#0E6E7E" stroke-width="1.6" marker-end="url(#c2)"/>
+<text x="153" y="40" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#0E6E7E">301</text>
+<rect x="180" y="32" width="110" height="30" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="235" y="52" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">/person</text>
+
+<text x="16" y="86" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">Next time, the browser goes straight to /person —</text>
+<text x="16" y="102" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">it doesn't ask again. Search engines transfer their</text>
+<text x="16" y="118" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">ranking across. Old bookmarks keep working.</text>
+<rect x="16" y="132" width="330" height="48" rx="3" fill="#F6E8DE" stroke="#9C4A18"/>
+<text x="30" y="152" font-family="IBM Plex Sans" font-size="11.5" font-weight="600" fill="#9C4A18">The catch: it's cached hard, sometimes forever.</text>
+<text x="30" y="170" font-family="IBM Plex Sans" font-size="11" fill="#9C4A18">Publish a wrong 301 and visitors can't un-learn it.</text>
+
+<line x1="380" y1="16" x2="380" y2="220" stroke="#DDE3E9"/>
+
+<text x="404" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#5B4B8A">302 — TEMPORARY</text>
+<rect x="404" y="32" width="110" height="30" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="459" y="52" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">/home</text>
+<line x1="516" y1="47" x2="566" y2="47" stroke="#5B4B8A" stroke-width="1.6" marker-end="url(#c2)"/>
+<text x="541" y="40" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#5B4B8A">302</text>
+<rect x="568" y="32" width="150" height="30" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="643" y="52" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">/campaign</text>
+
+<text x="404" y="86" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">Running a promotion for a few hours. Send visitors</text>
+<text x="404" y="102" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">to the campaign page for now, but keep asking</text>
+<text x="404" y="118" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">/home each time so you can revert instantly.</text>
+<rect x="404" y="132" width="330" height="48" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="418" y="152" font-family="IBM Plex Sans" font-size="11.5" font-weight="600" fill="#2D7D5A">Not cached as an identity change.</text>
+<text x="418" y="170" font-family="IBM Plex Sans" font-size="11" fill="#2D7D5A">The original URL stays the canonical one.</text>
+
+<text x="380" y="212" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">Same visible behaviour in a browser. Completely different consequences for caches, bookmarks and search engines.</text>
+</svg>
+<p class="cap"><b>Permanent versus temporary</b>Picking the wrong one is one of the easiest and most annoying mistakes to make, because both "work" when you test them and only one is reversible.</p>
+</div>
+
+<blockquote><p>Then we have 304, which says not modified. It indicates that the resource has not been modified since the last time the client requested it. This is mostly used in conjunction with conditional GET requests to allow efficient caching.</p></blockquote>
+
+<div class="key">
+<p class="tag">304 is the hinge of the next section</p>
+<p>It's filed under "redirection," which is misleading — it redirects you to your own cache. A <code>304</code> carries no body at all, which is the entire point: the server has confirmed your saved copy is still good, at the cost of a few hundred bytes instead of a few megabytes. Section four traces this happening live.</p>
+</div>
+
+<h3 class="sub">4xx · client errors</h3>
+
+<blockquote><p>As a backend engineer I think you will mostly deal with these errors, because these are the client errors — errors that are triggered because of some behavior from the client.</p></blockquote>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Code</th><th>Name</th><th>Fire it when</th></tr></thead>
+<tbody>
+<tr><td><code>400</code></td><td>Bad Request</td><td>The data is malformed or illogical — you expected a number and got an array, expected an email and got a phone number.</td></tr>
+<tr><td><code>401</code></td><td>Unauthorized</td><td>No credential, or an expired/invalid one. <strong>We don't know who you are.</strong></td></tr>
+<tr><td><code>403</code></td><td>Forbidden</td><td>We know exactly who you are, and you may not do this. User A trying to delete user B's resource.</td></tr>
+<tr><td><code>404</code></td><td>Not Found</td><td>No such resource — wrong URL, or it was deleted.</td></tr>
+<tr><td><code>405</code></td><td>Method Not Allowed</td><td>The path exists but not for that verb. PUT to something that only accepts GET or POST. Usually a typo.</td></tr>
+<tr><td><code>409</code></td><td>Conflict</td><td>The request clashes with current state — a folder with that name already exists.</td></tr>
+<tr><td><code>429</code></td><td>Too Many Requests</td><td>Rate limiting. You've exceeded what's allowed in the window.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="plain">
+<p class="tag">401 vs 403 — the distinction people get wrong constantly</p>
+<p>These map exactly onto the authentication/authorization split from post 03.</p>
+<p><strong>401 Unauthorized</strong> is badly named; it really means <em>unauthenticated</em>. You haven't proved who you are, or your proof has expired. The fix is to log in. This is why a client can act on it automatically: clear the stored token and show the login screen.</p>
+<p><strong>403 Forbidden</strong> means your identity is established and irrelevant — you're simply not permitted. Logging in again changes nothing. The fix is to ask an administrator, or stop trying.</p>
+<p>Getting these backwards produces a maddening bug where an app logs the user out repeatedly for hitting a page they were never allowed to see.</p>
+</div>
+
+<div class="plain">
+<p class="tag">409 and 429, with the scenarios from the video</p>
+<dl>
+<dt><code>409 Conflict</code></dt>
+<dd>Your app lets people create folders, and names must be unique. Someone POSTs a folder called "Invoices" and one already exists. This isn't a <em>malformed</em> request — it's perfectly well-formed, so 400 would be wrong. It conflicts with the state of the world, and the client should respond by suggesting a different name.</dd>
+<dt><code>429 Too Many Requests</code></dt>
+<dd><strong>Rate limiting</strong> means capping how often one client may call you — say 60 requests per second. Exceed it and you get 429. It exists to keep one misbehaving or malicious client from consuming the capacity everyone else needs. A well-behaved client reads the accompanying <code>Retry-After</code> header and waits rather than hammering harder.</dd>
+</dl>
+</div>
+
+<div class="sec">
+<p class="tag">Security note · 404 vs 403 as an information leak</p>
+<p>There's a real tension here. Correctly returning <code>403</code> for a resource you aren't allowed to see confirms that the resource <em>exists</em>. An attacker can enumerate valid user IDs, private document names or internal paths purely by watching which ones answer 403 and which answer 404.</p>
+<p>Which is why security-sensitive systems deliberately return <code>404</code> for both cases — "you can't see it" and "it isn't there" become indistinguishable. Correctness and secrecy genuinely pull against each other, and which you choose depends on what's behind the endpoint.</p>
+</div>
+
+<h3 class="sub">5xx · server errors</h3>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Code</th><th>Name</th><th>What it means</th></tr></thead>
+<tbody>
+<tr><td><code>500</code></td><td>Internal Server Error</td><td>Something broke and wasn't handled. An unhandled exception.</td></tr>
+<tr><td><code>501</code></td><td>Not Implemented</td><td>We don't support this yet, though we intend to.</td></tr>
+<tr><td><code>502</code></td><td>Bad Gateway</td><td>A proxy got an invalid response from the server behind it.</td></tr>
+<tr><td><code>503</code></td><td>Service Unavailable</td><td>Temporarily down — overloaded or in maintenance. Try later.</td></tr>
+<tr><td><code>504</code></td><td>Gateway Timeout</td><td>A proxy waited for the server behind it and gave up.</td></tr>
+</tbody>
+</table>
+</div>
+
+<blockquote><p>502 means bad gateway. We usually see this in proxies like Nginx: when a server acts as a proxy — like in a load-balanced system or reverse proxy — and an upstream server returns an invalid response. This is not something we return intentionally.</p></blockquote>
+
+<div class="plain">
+<p class="tag">502 and 504 are post 03 speaking</p>
+<p><strong>Upstream</strong> means the server further in — the one your proxy forwards to. In post 03's setup, Nginx on port 443 is the proxy and the Node app on <code>127.0.0.1:3001</code> is upstream.</p>
+<p>So <strong>502 Bad Gateway</strong> means Nginx tried to reach the Node app and got nothing usable — most often because the app has crashed and nothing is listening on 3001 any more. <strong>504 Gateway Timeout</strong> means the app <em>is</em> alive but took too long to answer, so Nginx gave up waiting.</p>
+<p>That distinction is a genuine debugging shortcut. 502 says "go check whether your process is running" — <code>pm2 list</code>. 504 says "your process is running and stuck" — go look for a slow query or an infinite loop. Neither is Nginx's fault; Nginx is the messenger.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>You phone a company's switchboard. <strong>502</strong>: the receptionist puts you through and the line is dead — nobody's in that office. <strong>504</strong>: the line rings and rings and the receptionist eventually comes back to apologise. <strong>500</strong>: you get through, and the person on the other end drops the phone mid-sentence. Only in the third case are you actually talking to the thing that broke.</p>
+</div>
+
+<div class="sec">
+<p class="tag">Security note · 500 responses should say nothing</p>
+<p>The demo's 500 body is just <code>{"error": "Internal Server Error"}</code> — deliberately uninformative, and that's correct. A default framework error page will happily return the stack trace, file paths, library versions, and sometimes fragments of the failing SQL query. That is a free map of your application, and combined with the <code>Server</code> and <code>X-Powered-By</code> headers from post 03, a very good starting point for an attacker.</p>
+<p>The rule: log everything internally, return nothing externally. If you need to correlate a user's complaint with a log entry, return an opaque ID — the <code>X-Request-ID</code> header from post 04 — and nothing else.</p>
+</div>
+</section>
+
+<!-- ══════════════ 3 ══════════════ -->
+<section id="demo">
+<div class="part-rule"><span>Three</span></div>
+<h2 class="head">Seeing them fire</h2>
+
+<blockquote><p>We have a frontend app for this demo where we are trying to emulate some of the responses, and there is a server running which will respond with different status codes. As you can see we have an OPTIONS request before each original request, because these are cross-origin requests and the browser needs to do a preflight request.</p></blockquote>
+
+<div class="plain">
+<p class="tag">Read the traffic list first</p>
+<p>Before any of the responses, notice the pattern in the proxy's history: <code>OPTIONS</code>, <code>GET</code>, <code>OPTIONS</code>, <code>POST</code>, <code>OPTIONS</code>, <code>POST</code>… Every real request is preceded by a preflight, exactly as post 04 predicted — the page is served from port 5173 and the API lives on port 3001, and <strong>a different port is a different origin</strong>. One <code>fetch()</code> in the code, two requests on the wire.</p>
+</div>
+<figure>
+<img src="images/05-01-the-status-code-demo-and-its-traffic.jpg" width="1500" height="602" loading="lazy" decoding="async" alt="The demo app and the proxy's history">
+<figcaption><b>The demo app and the proxy's history</b>Ten buttons on the left, every request they produced on the right. Note the alternating <code>OPTIONS</code> / real-method pattern — a preflight before each one, because the page is on port 5173 and the API on 3001.</figcaption>
+</figure>
+
+
+<h4 class="minor">200 OK — the baseline</h4>
+
+<pre><b>GET /api/success HTTP/1.1</b>
+<u>Host</u>: localhost:3001
+<u>Origin</u>: http://[::1]:5173
+
+<b>HTTP/1.1 200 OK</b>
+<u>X-Powered-By</u>: Express
+<u>Access-Control-Allow-Origin</u>: *
+<u>Content-Type</u>: application/json; charset=utf-8
+<u>Content-Length</u>: 53
+<u>ETag</u>: W/"35-uoWDsGTnfBYk8d18mOzZ34MnL2M"
+
+<s>{ "message": "Request was successful", "statusCode": 200 }</s></pre>
+<figure>
+<img src="images/05-02-200-ok.jpg" width="1500" height="488" loading="lazy" decoding="async" alt="200 OK">
+<figcaption><b>200 OK</b>The baseline. <code>GET /api/success</code> returns a body and a 200. Everything else in this section is a deviation from this.</figcaption>
+</figure>
+
+
+<h4 class="minor">201 Created — a POST that made something</h4>
+
+<pre><b>POST /api/create HTTP/1.1</b>
+<u>Host</u>: localhost:3001
+<u>Content-Type</u>: application/json
+
+<b>HTTP/1.1 201 Created</b>
+<s>{ "message": "Resource created successfully", "statusCode": 201 }</s></pre>
+<figure>
+<img src="images/05-03-201-created.jpg" width="1500" height="475" loading="lazy" decoding="async" alt="201 Created">
+<figcaption><b>201 Created</b>A <code>POST</code>, and the code changes to 201 — something now exists that didn't. The body confirms it, but the number is what a client branches on.</figcaption>
+</figure>
+
+
+<h4 class="minor">400, 401, 403 — three different client mistakes</h4>
+
+<pre><b>POST /api/bad-request  →  HTTP/1.1 400 Bad Request</b>
+<s>{ "error": "Bad Request: Missing required data", "statusCode": 400 }</s>
+
+<b>GET /api/unauthorized  →  HTTP/1.1 401 Unauthorized</b>
+<s>{ "error": "Unauthorized access", "statusCode": 401 }</s>
+
+<b>GET /api/forbidden     →  HTTP/1.1 403 Forbidden</b>
+<s>{ "error": "Forbidden: You do not have access", "statusCode": 403 }</s></pre>
+<figure>
+<img src="images/05-04-400-bad-request.jpg" width="1500" height="479" loading="lazy" decoding="async" alt="400 Bad Request">
+<figcaption><b>400 Bad Request</b><code>Content-Length: 0</code> on a POST that required data. The server names the problem: missing required data. The client's job is to fix the input and resubmit.</figcaption>
+</figure>
+
+<figure>
+<img src="images/05-05-401-unauthorized.jpg" width="1500" height="485" loading="lazy" decoding="async" alt="401 Unauthorized">
+<figcaption><b>401 Unauthorized</b>No credential presented. Despite the name this means <em>unauthenticated</em> — the correct client reaction is to clear any stored token and show the login screen.</figcaption>
+</figure>
+
+<figure>
+<img src="images/05-06-403-forbidden.jpg" width="1500" height="481" loading="lazy" decoding="async" alt="403 Forbidden">
+<figcaption><b>403 Forbidden</b>Contrast with the previous capture. Here identity isn't the issue: you are known, and refused. Logging in again would change nothing.</figcaption>
+</figure>
+
+
+<h4 class="minor">404 and 409</h4>
+
+<pre><b>GET /api/not-found  →  HTTP/1.1 404 Not Found</b>
+<s>{ "error": "Not Found: The requested resource could not be found", "statusCode": 404 }</s>
+
+<b>POST /api/conflict  →  HTTP/1.1 409 Conflict</b>
+<s>{ "error": "Conflict: Resource already exists", "statusCode": 409 }</s></pre>
+<figure>
+<img src="images/05-07-404-not-found.jpg" width="1500" height="494" loading="lazy" decoding="async" alt="404 Not Found">
+<figcaption><b>404 Not Found</b>The famous one. Note that this response, like every other, still carries <code>Access-Control-Allow-Origin</code> — without it the browser would hide the 404 behind a generic network error.</figcaption>
+</figure>
+
+<figure>
+<img src="images/05-08-409-conflict.jpg" width="1500" height="510" loading="lazy" decoding="async" alt="409 Conflict">
+<figcaption><b>409 Conflict</b>A well-formed request that clashes with the state of the world. Not a 400: nothing about the request was malformed, the resource simply already exists.</figcaption>
+</figure>
+
+
+<h4 class="minor">500 and 503 — the server's own failures</h4>
+
+<pre><b>HTTP/1.1 500 Internal Server Error</b>
+<u>X-Powered-By</u>: Express
+<u>Content-Type</u>: application/json; charset=utf-8
+<u>Content-Length</u>: 50
+
+<s>{ "error": "Internal Server Error", "statusCode": 500 }</s>
+
+<b>GET /api/service-unavailable  →  HTTP/1.1 503 Service Unavailable</b>
+<s>{ "error": "Service Unavailable: Please try again later", "statusCode": 503 }</s></pre>
+<figure>
+<img src="images/05-09-500-internal-server-error.jpg" width="1088" height="796" loading="lazy" decoding="async" alt="500 Internal Server Error">
+<figcaption><b>500 Internal Server Error</b>Deliberately uninformative, and correctly so. A default framework error page would have returned the stack trace, file paths and library versions instead.</figcaption>
+</figure>
+
+<figure>
+<img src="images/05-10-503-service-unavailable.jpg" width="1500" height="454" loading="lazy" decoding="async" alt="503 Service Unavailable">
+<figcaption><b>503 Service Unavailable</b>The polite version of a failure: temporary, try again. A client can act on this by backing off, which it should never do for a 500.</figcaption>
+</figure>
+
+
+<div class="plain">
+<p class="tag">Three things worth noticing across all of them</p>
+<p><strong>The error responses still have bodies.</strong> A 4xx or 5xx isn't "no answer" — it's an answer whose content is an explanation. Returning a structured error body alongside the code is good practice; the code tells software what happened, the body tells a developer why.</p>
+<p><strong><code>Access-Control-Allow-Origin: *</code> appears on the error responses too.</strong> It has to. Without it the browser would block the response and your JavaScript would see a generic network failure instead of a useful 403 — and you'd spend an hour debugging the wrong problem.</p>
+<p><strong><code>X-Powered-By: Express</code> is on every single one.</strong> That's the information-disclosure finding from post 03, still present. One line — <code>app.disable('x-powered-by')</code> — removes it.</p>
+</div>
+</section>
+
+<!-- ══════════════ 4 ══════════════ -->
+<section id="caching">
+<div class="part-rule"><span>Four</span></div>
+<h2 class="head">HTTP caching</h2>
+
+<blockquote><p>HTTP caching is a technique to store copies of responses for reuse, reducing the need for repeated requests to the server. This improves load time, reduces bandwidth and decreases server load — because the client does not need to download a lot of data and the server does not need to send a lot of data if the data is not changed.</p></blockquote>
+
+<div class="plain">
+<p class="tag">Two different questions, often confused</p>
+<p>Caching splits into two mechanisms that solve different problems.</p>
+<p><strong>Freshness</strong> — "may I use my copy without asking at all?" Answered by <code>Cache-Control: max-age=10</code>: for the next ten seconds, use your copy and send nothing. Zero network traffic. This is the fast path.</p>
+<p><strong>Validation</strong> — "my copy has expired; is it still correct?" Answered by a <strong>conditional request</strong>: the client asks, the server compares fingerprints and either sends fresh content (200) or says "unchanged" (304). Cheap, but still a round trip.</p>
+<p>The demo below is about validation, because that's where the interesting headers are.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>Freshness is a "best before" date: until it passes, don't even look. Validation is ringing the shop to ask "is my 2019 edition still current?" — a ten-second call instead of a trip across town. And the 304 is them saying "yes, nothing's changed" — you drove nowhere and still have the right information.</p>
+</div>
+
+<h3 class="sub">The four headers that do the work</h3>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Header</th><th>Direction</th><th>Job</th></tr></thead>
+<tbody>
+<tr><td><code>Cache-Control: max-age=10</code></td><td>response</td><td>"Reuse this freely for 10 seconds without asking."</td></tr>
+<tr><td><code>ETag: 3141</code></td><td>response</td><td>A fingerprint of this exact version of the content.</td></tr>
+<tr><td><code>Last-Modified</code></td><td>response</td><td>When it last changed. A coarser fallback for the same job.</td></tr>
+<tr><td><code>If-None-Match: 3141</code></td><td>request</td><td>"Only send it if the ETag differs from this."</td></tr>
+<tr><td><code>If-Modified-Since</code></td><td>request</td><td>"Only send it if it changed after this time."</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="plain">
+<p class="tag">ETag, and why a hash</p>
+<p>An <strong>ETag</strong> (entity tag) is a short string that changes whenever the content changes. Usually it's a <strong>hash</strong> — a function that turns any amount of data into a short fixed-length fingerprint, where any change to the input produces a completely different output. The demo uses a plain number (<code>3141</code>) for legibility; real ones look like <code>W/"2f-9KrxtO8260MExpKES4oz59cCE/g"</code>.</p>
+<p>The <code>W/</code> prefix means <strong>weak</strong>: the two versions are semantically equivalent even if not byte-identical. A strong ETag promises byte equality, which matters for resuming partial downloads.</p>
+<p><code>Last-Modified</code> does a similar job with a timestamp, but only has one-second resolution and can't detect a change that reverted. ETags are the more precise tool; servers usually send both.</p>
+</div>
+
+<h3 class="sub">The demo, in four steps</h3>
+<figure>
+<img src="images/05-11-the-caching-demo.jpg" width="1500" height="273" loading="lazy" decoding="async" alt="The caching demo, and the traffic behind it">
+<figcaption><b>The caching demo, and the traffic behind it</b>Two buttons — fetch and update — and the response panel below showing the ETag and last-modified time the client is currently holding.</figcaption>
+</figure>
+
+
+<h4 class="minor">Step 1 — the first fetch</h4>
+
+<pre><b>GET /api/resource HTTP/1.1</b>
+<u>Host</u>: localhost:3001
+<i># nothing conditional here — the client has no copy yet</i>
+
+<b>HTTP/1.1 200 OK</b>
+<s>Cache-Control</s>: max-age=10, public
+<s>ETag</s>: 3141
+<s>Last-Modified</s>: Fri, 27 Sep 2024 13:48:33 GMT
+<u>Content-Length</u>: 112
+
+{ "content": "This is the updated resource content.",
+  "lastModified": "Fri, 27 Sep 2024 13:48:33 GMT",
+  "etag": "3141" }</pre>
+<figure>
+<img src="images/05-12-the-first-fetch.jpg" width="1500" height="611" loading="lazy" decoding="async" alt="Step 1 · the first fetch">
+<figcaption><b>Step 1 · the first fetch</b>The three headers that matter are all in the response: <code>Cache-Control: max-age=10, public</code>, <code>ETag: 3141</code> and <code>Last-Modified</code>. The client stores all three alongside the body.</figcaption>
+</figure>
+
+
+<div class="plain">
+<p class="tag">What the client now stores</p>
+<p>Three things: the body, the ETag <code>3141</code>, and the last-modified time. <code>max-age=10, public</code> means it may reuse this for ten seconds without asking anyone, and <code>public</code> means shared caches — a CDN, a proxy — may also keep a copy. (<code>private</code> would mean browser-only; use it for anything user-specific.)</p>
+</div>
+
+<h4 class="minor">Step 2 — fetch again, nothing has changed</h4>
+
+<pre><b>GET /api/resource HTTP/1.1</b>
+<u>Host</u>: localhost:3001
+<u>Cache-Control</u>: max-age=0
+<s>If-None-Match</s>: 3141
+<s>If-Modified-Since</s>: Fri, 27 Sep 2024 13:48:33 GMT
+
+<b>HTTP/1.1 304 Not Modified</b>
+<u>Cache-Control</u>: max-age=10, public
+<i># no body at all — that is the entire saving</i></pre>
+<figure>
+<img src="images/05-13-the-304.jpg" width="1500" height="730" loading="lazy" decoding="async" alt="Step 2 · 304 Not Modified">
+<figcaption><b>Step 2 · 304 Not Modified</b>The request now carries <code>If-None-Match: 3141</code> and <code>If-Modified-Since</code>. They match, so the response is seven header lines and <strong>no body at all</strong>.</figcaption>
+</figure>
+
+<figure>
+<img src="images/05-14-using-the-cached-version.jpg" width="632" height="488" loading="lazy" decoding="async" alt="What the page shows">
+<figcaption><b>What the page shows</b>"Resource not modified, using cached version." The content on screen came from the browser's own store — the server confirmed it was still correct without sending it again.</figcaption>
+</figure>
+
+<figure>
+<img src="images/05-15-the-history-strip.jpg" width="1500" height="68" loading="lazy" decoding="async" alt="The three requests, in order">
+<figcaption><b>The three requests, in order</b><code>200</code> for the first fetch, <code>204</code> for the preflight, <code>304</code> for the second fetch. The whole caching story in three rows.</figcaption>
+</figure>
+
+
+<blockquote><p>What we are trying to say to the server is: if the ETag of the requested resource is not the same as this one which we have with us in the browser, or if the request has been modified after this — which means we have the outdated version — then send us the updated resource. Otherwise I will just use my cached version.</p></blockquote>
+
+<div class="plain">
+<p class="tag">Reading the conditional request</p>
+<p><code>If-None-Match: 3141</code> literally means "perform this request <em>only if</em> your ETag does <em>not</em> match 3141." The double negative is awkward but precise: a match means no work needed.</p>
+<p>The server compares, finds they match, and returns <code>304 Not Modified</code> with <strong>no body</strong>. A few hundred bytes of headers instead of the full payload. The client then serves its stored copy, and the page shows "Resource not modified, using cached version."</p>
+<p>Note <code>Cache-Control: max-age=0</code> on the <em>request</em>. That's the client saying "don't serve me from cache blindly, actually revalidate" — which is what a manual fetch does, and why we see the conditional request at all rather than silence.</p>
+</div>
+
+<h4 class="minor">Step 3 — update the resource</h4>
+
+<pre><b>POST /api/update-resource HTTP/1.1</b>
+
+<b>HTTP/1.1 200 OK</b>
+<s>{ "message": "Resource updated", "newEtag": "2943" }</s>
+
+<i># then the client refetches, still carrying the OLD etag:</i>
+<b>GET /api/resource HTTP/1.1</b>
+<s>If-None-Match</s>: 3141
+<s>If-Modified-Since</s>: Fri, 27 Sep 2024 13:48:33 GMT
+
+<b>HTTP/1.1 200 OK</b>          <i># ← 200, not 304</i>
+<s>ETag</s>: 2943
+<s>Last-Modified</s>: Fri, 27 Sep 2024 13:55:52 GMT
+
+{ "content": "This is the updated resource content.",
+  "lastModified": "Fri, 27 Sep 2024 13:55:52 GMT", "etag": "2943" }</pre>
+<figure>
+<img src="images/05-16-updating-the-resource.jpg" width="1500" height="622" loading="lazy" decoding="async" alt="Step 3 · update the resource">
+<figcaption><b>Step 3 · update the resource</b>The POST changes the content and the server returns a new ETag: <code>2943</code>. The client hasn't been told to discard anything — it simply still holds <code>3141</code>.</figcaption>
+</figure>
+
+<figure>
+<img src="images/05-17-the-etag-no-longer-matches.jpg" width="1500" height="649" loading="lazy" decoding="async" alt="Step 3 continued · now it's a 200">
+<figcaption><b>Step 3 continued · now it's a 200</b>Same conditional request as before, still offering <code>3141</code>. This time the tags differ, so the full body arrives with <code>ETag: 2943</code> and a new last-modified time.</figcaption>
+</figure>
+
+
+<div class="plain">
+<p class="tag">The moment the mechanism proves itself</p>
+<p>Same conditional request as step 2, different answer. The client still offers <code>3141</code>; the server now holds <code>2943</code>; they don't match, so the condition is satisfied and the full body is sent — along with the new ETag, which the client stores in place of the old one.</p>
+<p>This is the whole system working: the client never had to know whether the resource changed. It asked a question that is cheap to answer, and the server decided.</p>
+</div>
+
+<h4 class="minor">Step 4 — fetch once more</h4>
+
+<pre><b>GET /api/resource HTTP/1.1</b>
+<s>If-None-Match</s>: 2943          <i># the new one now</i>
+<s>If-Modified-Since</s>: Fri, 27 Sep 2024 13:55:52 GMT
+
+<b>HTTP/1.1 304 Not Modified</b></pre>
+<figure>
+<img src="images/05-18-back-to-304.jpg" width="1500" height="764" loading="lazy" decoding="async" alt="Step 4 · back to 304">
+<figcaption><b>Step 4 · back to 304</b><code>If-None-Match: 2943</code> — the tag it just received. Match again, body suppressed again. The cycle is stable until the next update.</figcaption>
+</figure>
+
+
+<div class="dia">
+<svg viewBox="0 0 760 330" role="img" aria-label="The four-step caching cycle">
+<defs><marker id="c3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<rect x="40" y="14" width="130" height="30" rx="4" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="105" y="34" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#16202B">browser cache</text>
+<rect x="600" y="14" width="130" height="30" rx="4" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="665" y="34" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#16202B">server</text>
+<line x1="105" y1="48" x2="105" y2="316" stroke="#DDE3E9" stroke-width="1.5"/>
+<line x1="665" y1="48" x2="665" y2="316" stroke="#DDE3E9" stroke-width="1.5"/>
+
+<circle cx="105" cy="74" r="10" fill="#0E6E7E"/><text x="105" y="78" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#fff">1</text>
+<line x1="118" y1="74" x2="652" y2="74" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#c3)"/>
+<text x="385" y="67" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#0E6E7E">GET — I have nothing</text>
+<line x1="652" y1="96" x2="118" y2="96" stroke="#2D7D5A" stroke-width="1.8" marker-end="url(#c3)"/>
+<text x="385" y="89" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#2D7D5A">200 + body + ETag 3141 — 112 bytes</text>
+
+<rect x="30" y="108" width="150" height="20" rx="2" fill="#F6E8DE" stroke="#9C4A18"/>
+<text x="105" y="122" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#9C4A18">stores body + 3141</text>
+
+<circle cx="105" cy="152" r="10" fill="#0E6E7E"/><text x="105" y="156" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#fff">2</text>
+<line x1="118" y1="152" x2="652" y2="152" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#c3)"/>
+<text x="385" y="145" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#0E6E7E">GET — If-None-Match: 3141</text>
+<line x1="652" y1="174" x2="118" y2="174" stroke="#5B4B8A" stroke-width="1.2" marker-end="url(#c3)"/>
+<text x="385" y="167" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#5B4B8A">304 — no body. headers only</text>
+<text x="700" y="156" font-family="IBM Plex Sans" font-size="10" fill="#2D7D5A">match</text>
+
+<circle cx="105" cy="212" r="10" fill="#9C4A18"/><text x="105" y="216" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#fff">3</text>
+<line x1="118" y1="212" x2="652" y2="212" stroke="#9C4A18" stroke-width="1.4" marker-end="url(#c3)"/>
+<text x="385" y="205" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#9C4A18">POST /update-resource — content changes, ETag becomes 2943</text>
+
+<circle cx="105" cy="248" r="10" fill="#0E6E7E"/><text x="105" y="252" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#fff">4</text>
+<line x1="118" y1="248" x2="652" y2="248" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#c3)"/>
+<text x="385" y="241" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#0E6E7E">GET — If-None-Match: 3141 (still the old one)</text>
+<line x1="652" y1="270" x2="118" y2="270" stroke="#2D7D5A" stroke-width="1.8" marker-end="url(#c3)"/>
+<text x="385" y="263" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#2D7D5A">200 + full body + ETag 2943</text>
+<text x="700" y="252" font-family="IBM Plex Sans" font-size="10" fill="#B04A3F">differ</text>
+
+<text x="385" y="306" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">Same request shape every time. The ETag comparison alone decides whether a body is sent.</text>
+</svg>
+<p class="cap"><b>The whole cycle</b>Only steps 1 and 4 transfer content. Steps 2 and 5 cost a round trip and a few hundred bytes — and on a real page with a hundred assets, that difference is the difference between fast and slow.</p>
+</div>
+
+<blockquote><p>Even though in a production setting it gets a lot complicated, because the server has to manually implement and manage all these ETags, and if by mistake you forgot to update an ETag then the client will continue to use the cached version with the outdated resource — which is not a good idea.</p></blockquote>
+
+<div class="sec">
+<p class="tag">The two hard problems with caching</p>
+<p><strong>Stale data.</strong> A forgotten ETag update means clients confidently serve old content and there is no error anywhere — nothing crashes, nothing logs, the system looks perfectly healthy while showing people yesterday's prices. Cache bugs are quiet, which makes them expensive.</p>
+<p><strong>Invalidation.</strong> Once you've told the world "cache this for a year," you cannot take it back. The standard answer is <strong>cache busting</strong>: change the URL itself when the content changes — <code>app.a3f91c.js</code> instead of <code>app.js</code> — so a new version is a new resource and the old cache entry becomes irrelevant rather than wrong.</p>
+</div>
+
+<blockquote><p>Nowadays we have better solutions for caching — for example React Query, which is a complete client-side cache, so the client has complete power over when it wants to use a cached resource and when it wants to refetch. In my opinion a much better solution compared to traditional HTTP-based caching. But it is good to know we have this option; if our use case is simple enough we can go ahead and use HTTP-based caching.</p></blockquote>
+
+<div class="plain">
+<p class="tag">Why application-level caching often wins for APIs</p>
+<p>HTTP caching is <em>declarative</em>: the server states a policy and every cache in the chain obeys, with the client having little say. That's ideal for static assets — images, scripts, fonts — where the server genuinely does know best and the content is shared by everyone.</p>
+<p>It's a poor fit for application data, where the client knows things the server can't: this screen is visible right now, that data is stale because the user just edited it, refetch when the window regains focus. A client-side cache like React Query is <em>imperative</em> — the application decides. Different tools for different problems, and most real systems use both.</p>
+</div>
+</section>
+
+<!-- ══════════════ 5 ══════════════ -->
+<section id="negotiation">
+<div class="part-rule"><span>Five</span></div>
+<h2 class="head">Content negotiation</h2>
+
+<blockquote><p>This is basically a mechanism using which client and server agree on the best format to exchange data. The client can indicate its preferred format — like JSON or XML or HTML — and the server will try to respond with a compatible format, or if not available, a fallback format.</p></blockquote>
+
+<div class="plain">
+<p class="tag">The idea, and why it isn't just separate URLs</p>
+<p>One resource, several <strong>representations</strong>. The Spanish XML version and the English JSON version are the same underlying thing wearing different clothes. Negotiation keeps them at one URL and lets the client state preferences in headers.</p>
+<p>You could instead expose <code>/api/resource.es.xml</code> and <code>/api/resource.en.json</code> and so on — and plenty of APIs do. The trade-off: separate URLs are simpler to reason about and cache, but multiply combinatorially and mean a link you share carries your language preference to whoever you sent it to. Negotiation keeps one canonical link that adapts per reader.</p>
+</div>
+
+<div class="dia">
+<svg viewBox="0 0 760 260" role="img" aria-label="Three axes of content negotiation">
+<defs><marker id="c4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#5B4B8A" letter-spacing="0.5">THE CLIENT ASKS</text>
+
+<rect x="16" y="34" width="250" height="50" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="30" y="54" font-family="IBM Plex Mono, monospace" font-size="11" fill="#16202B">Accept: application/json</text>
+<text x="30" y="72" font-family="IBM Plex Sans" font-size="10.5" fill="#5B4B8A">media type — JSON, XML, HTML</text>
+
+<rect x="16" y="94" width="250" height="50" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="30" y="114" font-family="IBM Plex Mono, monospace" font-size="11" fill="#16202B">Accept-Language: es</text>
+<text x="30" y="132" font-family="IBM Plex Sans" font-size="10.5" fill="#5B4B8A">language — English, Spanish</text>
+
+<rect x="16" y="154" width="250" height="50" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="30" y="174" font-family="IBM Plex Mono, monospace" font-size="11" fill="#16202B">Accept-Encoding: gzip, br</text>
+<text x="30" y="192" font-family="IBM Plex Sans" font-size="10.5" fill="#5B4B8A">compression — gzip, deflate, br</text>
+
+<line x1="270" y1="120" x2="330" y2="120" stroke="#0E6E7E" stroke-width="1.6" marker-end="url(#c4)"/>
+
+<rect x="334" y="82" width="140" height="76" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.6"/>
+<text x="404" y="110" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#16202B">the server</text>
+<text x="404" y="130" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#0A4F5B">picks the best it</text>
+<text x="404" y="146" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#0A4F5B">can actually do</text>
+
+<line x1="478" y1="120" x2="538" y2="120" stroke="#2D7D5A" stroke-width="1.6" marker-end="url(#c4)"/>
+
+<text x="542" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#2D7D5A" letter-spacing="0.5">AND ANSWERS</text>
+<rect x="542" y="34" width="202" height="50" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="556" y="54" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#16202B">Content-Type: application/xml</text>
+<text x="556" y="72" font-family="IBM Plex Sans" font-size="10.5" fill="#2D7D5A">what it actually sent</text>
+
+<rect x="542" y="94" width="202" height="50" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="556" y="114" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#16202B">Content-Language: es</text>
+<text x="556" y="132" font-family="IBM Plex Sans" font-size="10.5" fill="#2D7D5A">which language it chose</text>
+
+<rect x="542" y="154" width="202" height="50" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="556" y="174" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#16202B">Content-Encoding: gzip</text>
+<text x="556" y="192" font-family="IBM Plex Sans" font-size="10.5" fill="#2D7D5A">how it compressed it</text>
+
+<rect x="270" y="214" width="220" height="30" rx="3" fill="#F6E8DE" stroke="#9C4A18"/>
+<text x="380" y="234" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#9C4A18">Vary: Accept-Encoding</text>
+<text x="500" y="234" font-family="IBM Plex Sans" font-size="11" fill="#9C4A18">— and tells caches it varies</text>
+</svg>
+<p class="cap"><b>Accept goes out, Content comes back</b>The naming is consistent and worth memorising: <code>Accept-*</code> headers are the client's wishes; <code>Content-*</code> headers are the server's decision.</p>
+</div>
+
+<h3 class="sub">The demo: same URL, four answers</h3>
+<figure>
+<img src="images/05-19-the-negotiation-demo.jpg" width="1500" height="270" loading="lazy" decoding="async" alt="The content negotiation demo">
+<figcaption><b>The content negotiation demo</b>Three dropdowns — language, format, encoding — and one <code>GET /api/resource</code> behind all of them. The URL never changes.</figcaption>
+</figure>
+
+
+<pre><i># English + JSON</i>
+<u>Accept</u>: application/json
+<u>Accept-Language</u>: en
+<b>→ HTTP/1.1 200 OK</b>  <u>Content-Type</u>: application/json
+<s>{ "message": "Hello, world!", "description": "This is a demo of content negotiation." }</s>
+
+<i># change one header: Spanish + JSON</i>
+<u>Accept</u>: application/json
+<u>Accept-Language</u>: es
+<b>→ HTTP/1.1 200 OK</b>  <u>Content-Type</u>: application/json
+<s>{ "message": "Hola, mundo!", "description": "Esta es una demostración de negociación de contenido." }</s>
+
+<i># change another: Spanish + XML</i>
+<u>Accept</u>: application/xml
+<u>Accept-Language</u>: es
+<b>→ HTTP/1.1 200 OK</b>  <u>Content-Type</u>: application/xml
+<s>&lt;response&gt;
+  &lt;message&gt;Hola, mundo!&lt;/message&gt;
+  &lt;description&gt;Esta es una demostración de negociación de contenido.&lt;/description&gt;
+&lt;/response&gt;</s></pre>
+<figure>
+<img src="images/05-20-english-json.jpg" width="1500" height="599" loading="lazy" decoding="async" alt="English, JSON">
+<figcaption><b>English, JSON</b><code>Accept: application/json</code> and <code>Accept-Language: en</code>. Note <code>Vary: Accept-Encoding</code> on the response — the server warning caches that its answer depends on the request.</figcaption>
+</figure>
+
+<figure>
+<img src="images/05-21-the-same-url-in-spanish.jpg" width="1200" height="470" loading="lazy" decoding="async" alt="The same URL, in Spanish">
+<figcaption><b>The same URL, in Spanish</b>Nothing about the request changed except one header value. The resource is the same; this is a different representation of it.</figcaption>
+</figure>
+
+<figure>
+<img src="images/05-22-spanish-json.jpg" width="1500" height="621" loading="lazy" decoding="async" alt="Spanish, JSON">
+<figcaption><b>Spanish, JSON</b>The capture behind the previous screenshot. <code>Accept-Language: es</code> is the only difference from the English request.</figcaption>
+</figure>
+
+<figure>
+<img src="images/05-23-spanish-xml.jpg" width="1500" height="675" loading="lazy" decoding="async" alt="Spanish, XML">
+<figcaption><b>Spanish, XML</b>Now <code>Accept: application/xml</code> as well. Same path, same language, different serialisation — and <code>Content-Type</code> in the response reports what was chosen.</figcaption>
+</figure>
+
+
+<div class="plain">
+<p class="tag">Three requests, one URL, no code change on the client</p>
+<p>Each capture is <code>GET /api/resource</code>. The path never changes. The only difference between them is one header value, and the server rebuilds its answer accordingly — different language, different serialisation format.</p>
+<p>Notice <code>Vary: Accept-Encoding</code> in the responses. That's the server warning caches that its answer depends on a request header. Without it, a shared cache could store the Spanish XML and hand it to the next person who asked for English JSON. Any time you negotiate, you must vary — and forgetting is a classic production bug.</p>
+</div>
+
+<div class="plain">
+<p class="tag">Quality values, since you'll see them</p>
+<p>Real browsers don't send a single preference; they send a ranked list with <strong>q-values</strong> between 0 and 1:</p>
+<p><code>Accept-Language: en-GB,en;q=0.9,es;q=0.5</code> means: British English ideally; any English is nearly as good; Spanish if you must. The server picks the highest-ranked thing it can actually produce. Omitting <code>q</code> means <code>q=1</code>.</p>
+<p>You saw exactly this in post 04's captures — <code>en-GB,en;q=0.9</code> — sent automatically by the browser on every request, whether or not any server ever reads it.</p>
+</div>
+
+<div class="sec">
+<p class="tag">Security note · negotiation headers are a fingerprinting surface</p>
+<p><code>Accept-Language</code> quietly reveals where you probably are and what you probably speak. Combined with <code>User-Agent</code>, screen size, timezone and installed fonts, it contributes to a <strong>browser fingerprint</strong> distinctive enough to track someone across sites without any cookie at all. It's a good illustration that privacy leaks rarely come from one damning field — they come from the accumulation of individually reasonable ones.</p>
+</div>
+</section>
+
+<!-- ══════════════ 6 ══════════════ -->
+<section id="compression">
+<div class="part-rule"><span>Six</span></div>
+<h2 class="head">Compression</h2>
+
+<blockquote><p>I've replaced the JSON response with a very large file of 11,000 entries. Because we are compressing the file on the server side with gzip encoding, the size is 3.8 MB. Now let me disable compression on the server side and fire the same request — the file size becomes 26 MB. That's a huge increase, and imagine every client having to download that file.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 230" role="img" aria-label="The same response with and without gzip">
+<text x="16" y="22" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#B04A3F" letter-spacing="0.5">COMPRESSION OFF</text>
+<rect x="16" y="34" width="620" height="44" rx="3" fill="#F7E3E0" stroke="#B04A3F" stroke-width="1.5"/>
+<text x="326" y="62" text-anchor="middle" font-family="IBM Plex Sans" font-size="17" font-weight="600" fill="#B04A3F">26.1 MB</text>
+<text x="648" y="62" font-family="IBM Plex Sans" font-size="11.5" fill="#B04A3F">every client, every time</text>
+
+<text x="16" y="110" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#2D7D5A" letter-spacing="0.5">COMPRESSION ON — Content-Encoding: gzip</text>
+<rect x="16" y="122" width="90" height="44" rx="3" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.5"/>
+<text x="61" y="150" text-anchor="middle" font-family="IBM Plex Sans" font-size="15" font-weight="600" fill="#2D7D5A">3.8 MB</text>
+<text x="118" y="150" font-family="IBM Plex Sans" font-size="11.5" fill="#2D7D5A">identical content · about 85% smaller · decompressed by the browser automatically</text>
+
+<line x1="16" y1="184" x2="744" y2="184" stroke="#DDE3E9"/>
+<text x="16" y="206" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">JSON compresses extremely well because it repeats itself relentlessly — the same key names appear in all 11,000 entries.</text>
+<text x="16" y="224" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">Compression replaces each repetition with a short back-reference to the first occurrence.</text>
+</svg>
+<p class="cap"><b>The measurement from the demo</b>One server-side setting, nearly seven times the bandwidth. This is the cheapest performance win available and it is a single line of configuration.</p>
+</div>
+<figure>
+<img src="images/05-24-the-compressed-response.jpg" width="1500" height="971" loading="lazy" decoding="async" alt="With compression on">
+<figcaption><b>With compression on</b>3.8 MB, 540 ms, for an 11,000-entry JSON file. DevTools reports the size that crossed the network, not the size after decompression.</figcaption>
+</figure>
+
+<figure>
+<img src="images/05-26-with-and-without-compression.jpg" width="1500" height="1035" loading="lazy" decoding="async" alt="The comparison">
+<figcaption><b>The comparison</b>The same request, twice: 3.8 MB with compression, 26.1 MB without. Identical content. The difference is one server-side setting.</figcaption>
+</figure>
+
+
+<div class="plain">
+<p class="tag">How it actually works, and the one header that switches it on</p>
+<p>The client advertises what it can decompress with <code>Accept-Encoding: gzip, deflate, br, zstd</code>. The server picks one, compresses the body, and says which it used with <code>Content-Encoding: gzip</code>. The browser decompresses before your code ever sees it — so from JavaScript's point of view nothing happened at all.</p>
+<dl>
+<dt>gzip</dt>
+<dd>The universal default. Supported everywhere, decades old, fast enough.</dd>
+<dt>br (Brotli)</dt>
+<dd>Newer, roughly 15–20% better than gzip on text, and the usual choice today for anything served over HTTPS.</dd>
+<dt>zstd</dt>
+<dd>Newer still, tuned for speed at similar ratios. Increasingly common.</dd>
+</dl>
+<p>Compression trades CPU for bandwidth. That's almost always a good trade for text; it's a waste for anything already compressed — JPEGs, PNGs, MP4s, ZIPs — where you spend the CPU and get nothing, and can occasionally end up slightly larger.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>Vacuum-packing clothes for a suitcase. Same clothes, a fraction of the volume, a little effort at each end. Vacuum-packing a brick achieves nothing — which is why you don't gzip a JPEG.</p>
+</div>
+
+<div class="plain">
+<p class="tag">Why the raw response looked like garbage</p>
+<p>In the capture, the compressed response body renders as <code>ì½{ ³$Çu'öU*·ÿ¹ {</code> and so on. That isn't corruption — it's the compressed bytes, viewed as if they were text. The proxy is showing you the literal wire content, before the browser has unpacked it. <code>Content-Length: 3802821</code> counts those compressed bytes, not the original size.</p>
+</div>
+<figure>
+<img src="images/05-25-what-compressed-bytes-look-like.jpg" width="1500" height="1110" loading="lazy" decoding="async" alt="The compressed body, raw">
+<figcaption><b>The compressed body, raw</b>Not corruption — this is what gzip output looks like when displayed as text. <code>Content-Encoding: gzip</code> at the top is the instruction to unpack it; the browser does so before your code sees anything.</figcaption>
+</figure>
+
+
+<div class="sec">
+<p class="tag">Security note · compression plus secrets equals a leak</p>
+<p>Compression works by exploiting repetition, so the compressed size depends on the content — which means size becomes an information channel. If an attacker can inject text into a response that also contains a secret, they can guess the secret one character at a time by watching which guesses make the output <em>smaller</em> (because their guess matched, and matches compress). This is the basis of the BREACH and CRIME attacks.</p>
+<p>The practical takeaway: don't put secrets like CSRF tokens in compressed responses that also reflect user input. It's an unusually elegant reminder that side channels don't care about your encryption.</p>
+</div>
+</section>
+
+<!-- ══════════════ 7 ══════════════ -->
+<section id="keepalive">
+<div class="part-rule"><span>Seven</span></div>
+<h2 class="head">Persistent connections and keep-alive</h2>
+
+<blockquote><p>In the early days of HTTP, specifically HTTP/1.0, each request-response cycle required a separate connection to the server. This created inefficiencies since establishing and closing TCP connections is resource intensive and slow. To address this, persistent connections were introduced in HTTP/1.1.</p></blockquote>
+
+<div class="plain">
+<p class="tag">This is post 04's handshake diagram, cashed out</p>
+<p>Recall the round trips before a single useful byte moves: SYN, SYN-ACK, ACK for TCP, then the TLS exchange on top. On a connection with 100ms of latency that's several hundred milliseconds of pure ceremony.</p>
+<p>A <strong>persistent connection</strong> pays that once and then reuses the line. On a page making eighty requests, that's the difference between eighty handshakes and one. It is the single largest reason HTTP/1.1 outperformed HTTP/1.0.</p>
+</div>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Setting</th><th>Meaning</th><th>Where it applies</th></tr></thead>
+<tbody>
+<tr><td><code>Connection: keep-alive</code></td><td>"Don't hang up, I'll ask again shortly"</td><td>Default in HTTP/1.1; explicit in 1.0</td></tr>
+<tr><td><code>Connection: close</code></td><td>"Close after this response"</td><td>Default in HTTP/1.0; can be forced in 1.1</td></tr>
+<tr><td><code>Keep-Alive: timeout=5</code></td><td>Hold the line 5 seconds after the last request</td><td>Optional tuning</td></tr>
+<tr><td><code>Keep-Alive: max=100</code></td><td>Allow at most 100 requests on this connection</td><td>Optional tuning</td></tr>
+</tbody>
+</table>
+</div>
+
+<blockquote><p>In HTTP/1.1 connections are persistent by default. We won't have to do anything explicitly about them — they remain open for further requests unless explicitly closed. That is some amount of information you just have to understand, but you usually won't be working with them; the default values work fine.</p></blockquote>
+
+<div class="plain">
+<p class="tag">Why <code>timeout=5</code> is a real trade-off</p>
+<p>Every held-open connection consumes memory and a file handle on the server whether or not it's being used. Hold them too long and an idle crowd exhausts your connection limit; close them too fast and returning visitors pay the handshake again.</p>
+<p>Five seconds is the common default because it comfortably covers "the browser is still loading this page" without keeping thousands of idle sockets alive. You'll see <code>Keep-Alive: timeout=5</code> in almost every capture in these notes — it's Express's default, not a considered choice by anybody.</p>
+<p>Note also that <code>Connection</code> is <strong>meaningless in HTTP/2 and later</strong>, where a single multiplexed connection is simply how the protocol works. If you see the header there, it's a leftover.</p>
+</div>
+</section>
+
+<!-- ══════════════ 8 ══════════════ -->
+<section id="large">
+<div class="part-rule"><span>Eight</span></div>
+<h2 class="head">Large requests and responses</h2>
+
+<blockquote><p>One last topic I want to cover is handling large requests and responses — how a server takes in large requests like video files, image files, audio files, and how a client can receive large responses in the same way.</p></blockquote>
+
+<p>Two directions, two mechanisms. Uploading uses <strong>multipart</strong>; downloading uses <strong>streaming</strong>.</p>
+
+<h3 class="sub">Going up: multipart form data</h3>
+<figure>
+<img src="images/05-27-the-large-payload-demo.jpg" width="1500" height="292" loading="lazy" decoding="async" alt="The large-payload demo">
+<figcaption><b>The large-payload demo</b>Two independent mechanisms on one page: a file upload going up, and a stream coming down.</figcaption>
+</figure>
+
+
+<blockquote><p>Multipart is usually used for sending large files or any kind of files to the server from the client. The difference from our typical JSON request body is that in a multipart request the binary data of the file is transferred to the server in parts — that's why it is called a multipart request.</p></blockquote>
+
+<div class="plain">
+<p class="tag">The problem multipart solves</p>
+<p>JSON is text. A PNG is raw bytes, most of which aren't valid text at all. You can smuggle binary into JSON by base64-encoding it, but that inflates the data by a third and forces the whole thing into memory on both ends.</p>
+<p><strong>Multipart</strong> instead splits the body into labelled sections, each with its own headers, separated by a marker string. Binary goes across untouched, several fields and files can travel in one request, and the server can stream each part to disk as it arrives rather than buffering the lot.</p>
+</div>
+
+<pre><b>POST /api/upload HTTP/1.1</b>
+<u>Host</u>: localhost:3001
+<u>Content-Length</u>: 912097
+<u>Content-Type</u>: multipart/form-data; boundary=----WebKitFormBoundarycn7JAzmAvSCc5fPB
+
+<i># part one begins — the boundary marks it</i>
+------WebKitFormBoundarycn7JAzmAvSCc5fPB
+Content-Disposition: form-data; name="file"; filename="Zenitsu-dark.png"
+Content-Type: image/png
+
+<i>  …911,908 bytes of raw PNG…  </i>
+------WebKitFormBoundarycn7JAzmAvSCc5fPB--   <i># the trailing -- means: that was the last part</i>
+
+<b>HTTP/1.1 200 OK</b>
+<s>{ "message": "File uploaded successfully",
+  "fileDetails": {
+    "fieldname": "file",
+    "originalname": "Zenitsu-dark.png",
+    "mimetype": "image/png",
+    "destination": "uploads/",
+    "filename": "33b1d301655cb848016f3726fdde6c4f",
+    "size": 911908
+  } }</s></pre>
+<figure>
+<img src="images/05-28-the-multipart-upload.jpg" width="1500" height="1143" loading="lazy" decoding="async" alt="The multipart upload">
+<figcaption><b>The multipart upload</b><code>Content-Type: multipart/form-data; boundary=----WebKitFormBoundary…</code>, and the same string appearing again at the start of the part. The response shows the server stored the file under a generated name, keeping the original only as metadata.</figcaption>
+</figure>
+
+<figure>
+<img src="images/05-29-the-closing-boundary.jpg" width="1500" height="843" loading="lazy" decoding="async" alt="The end of the body">
+<figcaption><b>The end of the body</b>Thousands of lines of raw PNG bytes, then the boundary one final time with a trailing <code>--</code>. That suffix is the only thing marking the end of the upload.</figcaption>
+</figure>
+
+
+<div class="plain">
+<p class="tag">The boundary, which is the whole trick</p>
+<p>The body has no <code>Content-Length</code> per part, so the receiver needs some way to know where one part ends. That's the <strong>boundary</strong>: a random string declared up front in the <code>Content-Type</code> header, then repeated before each part and once more with a trailing <code>--</code> at the end.</p>
+<p>It has to be random precisely because it must not occur inside the file's own bytes — if it did, the server would split the image in half and you'd get a corrupt upload. <code>WebKitFormBoundary</code> plus random characters is just Chrome's convention; the string itself is arbitrary.</p>
+<p>Notice too what the server did with the filename: it stored the file as <code>33b1d301655cb848016f3726fdde6c4f</code> and kept <code>Zenitsu-dark.png</code> only as metadata. That's deliberate — see the note below.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>Posting several documents in one envelope with coloured card between them. The card is the boundary. You pick a colour you're certain doesn't appear in any of the documents, and you tell the recipient up front which colour to look for. The last card has a corner torn off to mean "that's everything."</p>
+</div>
+
+<div class="sec">
+<p class="tag">Security note · file upload is one of the riskiest features you can build</p>
+<p>Every one of these matters, and the capture above quietly gets the first one right:</p>
+<p><strong>Never trust the filename.</strong> <code>originalname</code> is attacker-controlled text. A filename of <code>../../etc/cron.d/evil</code> is a path traversal attack; <code>shell.php</code> on a PHP host is remote code execution. Generate your own name, as this server did, and keep the original only as a display label.</p>
+<p><strong>Never trust <code>mimetype</code>.</strong> It's whatever the client claimed. Check the actual file signature, and recall <code>X-Content-Type-Options: nosniff</code> from post 04 — a file that claims to be a PNG but contains JavaScript is a live threat if any browser ever guesses.</p>
+<p><strong>Serve uploads from somewhere they cannot execute</strong>, ideally a different origin entirely, so that even a successful malicious upload can't run as your site.</p>
+<p><strong>Limit the size.</strong> Without a cap, one request can fill your disk. <code>Content-Length: 912097</code> should be checked before a byte is written, not after.</p>
+</div>
+
+<h3 class="sub">Coming down: streaming and chunked transfer</h3>
+<figure>
+<img src="images/05-30-the-stream-arriving.jpg" width="1500" height="955" loading="lazy" decoding="async" alt="The stream, mid-flight">
+<figcaption><b>The stream, mid-flight</b>Sherlock Holmes arriving in pieces. The text on the left is already rendered while the connection on the right is still open and delivering.</figcaption>
+</figure>
+
+
+<blockquote><p>For this demo I have used a large text file on the server side and we want to stream the data to the client side in chunks. You can see that we are receiving chunks continuously from the server. The client keeps appending all the data that it is receiving and constructing this whole text file.</p></blockquote>
+
+<pre><b>GET /api/stream-data HTTP/1.1</b>
+<u>Host</u>: localhost:3001
+<u>Accept</u>: text/event-stream
+<u>Cache-Control</u>: no-cache
+
+<b>HTTP/1.1 200 OK</b>
+<s>Content-Type</s>: text/event-stream
+<s>Cache-Control</s>: no-cache
+<s>Connection</s>: keep-alive
+
+data: The Project Gutenberg EBook of The Adventures of Sherlock Holmes
+data: by Sir Arthur Conan Doyle
+data: (#15 in our series by Sir Arthur Conan Doyle)
+<i>  …the connection stays open, more data arriving…  </i></pre>
+<figure>
+<img src="images/05-31-text-event-stream.jpg" width="1500" height="1100" loading="lazy" decoding="async" alt="The streaming capture">
+<figcaption><b>The streaming capture</b><code>Content-Type: text/event-stream</code>, <code>Cache-Control: no-cache</code>, <code>Connection: keep-alive</code> — the three headers that turn a response into a channel. Each line prefixed <code>data:</code> is one event.</figcaption>
+</figure>
+
+
+<div class="plain">
+<p class="tag">The three headers that make it a stream</p>
+<dl>
+<dt><code>Content-Type: text/event-stream</code></dt>
+<dd>Not <code>text/plain</code>. This declares <strong>Server-Sent Events</strong> — the one-way push channel mentioned in post 04 as a workaround for the server not being able to speak first. Each line prefixed <code>data:</code> is one event the client receives as it arrives.</dd>
+<dt><code>Cache-Control: no-cache</code></dt>
+<dd>Obviously — there is no complete response to store, and caching half a stream would be meaningless.</dd>
+<dt><code>Connection: keep-alive</code></dt>
+<dd>Here it's load-bearing rather than incidental. The connection must stay open for the duration, because it <em>is</em> the delivery mechanism.</dd>
+</dl>
+</div>
+
+<div class="dia">
+<svg viewBox="0 0 760 290" role="img" aria-label="Buffered response versus streamed response">
+<defs><marker id="c5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#B04A3F">BUFFERED — build it all, then send</text>
+<rect x="16" y="32" width="130" height="34" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="81" y="53" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#16202B">server</text>
+<rect x="160" y="32" width="300" height="34" rx="3" fill="#F7E3E0" stroke="#B04A3F"/>
+<text x="310" y="53" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#B04A3F">assembles the entire 6 MB in memory…</text>
+<line x1="464" y1="49" x2="524" y2="49" stroke="#B04A3F" stroke-width="2.5" marker-end="url(#c5)"/>
+<rect x="528" y="32" width="130" height="34" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="593" y="53" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#16202B">client</text>
+<text x="16" y="86" font-family="IBM Plex Sans" font-size="11.5" fill="#B04A3F">Client sees nothing at all until it's finished. Server holds the whole thing in RAM. Multiply by 500 concurrent users.</text>
+
+<line x1="16" y1="106" x2="744" y2="106" stroke="#DDE3E9"/>
+
+<text x="16" y="128" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#2D7D5A">STREAMED — send as you go</text>
+<rect x="16" y="140" width="130" height="34" rx="3" fill="#DCEAEC" stroke="#0E6E7E"/>
+<text x="81" y="161" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#16202B">server</text>
+
+<line x1="150" y1="150" x2="524" y2="150" stroke="#2D7D5A" stroke-width="1.3" marker-end="url(#c5)"/>
+<line x1="150" y1="164" x2="524" y2="164" stroke="#2D7D5A" stroke-width="1.3" marker-end="url(#c5)"/>
+<line x1="150" y1="178" x2="524" y2="178" stroke="#2D7D5A" stroke-width="1.3" marker-end="url(#c5)"/>
+<line x1="150" y1="192" x2="524" y2="192" stroke="#2D7D5A" stroke-width="1.3" marker-end="url(#c5)"/>
+<text x="250" y="146" font-family="IBM Plex Mono, monospace" font-size="9" fill="#2D7D5A">data: chunk</text>
+<text x="250" y="188" font-family="IBM Plex Mono, monospace" font-size="9" fill="#2D7D5A">data: chunk</text>
+
+<rect x="528" y="140" width="130" height="34" rx="3" fill="#E4E0EF" stroke="#5B4B8A"/>
+<text x="593" y="161" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#16202B">client</text>
+<rect x="528" y="180" width="130" height="30" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="593" y="199" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#2D7D5A">renders as it arrives</text>
+
+<text x="16" y="230" font-family="IBM Plex Sans" font-size="11.5" fill="#2D7D5A">Text appears within milliseconds. Neither side ever holds more than one chunk. The connection stays open until done.</text>
+
+<line x1="16" y1="248" x2="744" y2="248" stroke="#DDE3E9"/>
+<text x="16" y="270" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">This is why an AI chat response appears word by word, why a video starts before it has downloaded, and why a progress bar can exist at all.</text>
+</svg>
+<p class="cap"><b>Why streaming is worth the complexity</b>The total bytes are identical. What changes is when the first one arrives — and how much memory the server needs while it happens.</p>
+</div>
+
+<div class="plain">
+<p class="tag">Chunked transfer vs Server-Sent Events, since they're related but not the same</p>
+<p><strong>Chunked transfer encoding</strong> (from post 04) is the HTTP/1.1 mechanism for sending a body whose length isn't known in advance: each chunk is prefixed with its size, and a zero-length chunk ends it. It's a transport detail and applies to any content type.</p>
+<p><strong>Server-Sent Events</strong> is a format layered on top: <code>Content-Type: text/event-stream</code>, messages prefixed <code>data:</code>, and a browser API (<code>EventSource</code>) that reconnects automatically if the line drops. Use chunked when you're sending one large thing progressively; use SSE when you're sending a series of discrete updates over time.</p>
+<p>And use WebSockets when you need the client to talk back on the same channel — SSE is strictly one-way.</p>
+</div>
+</section>
+
+<!-- ══════════════ 9 ══════════════ -->
+<section id="tls">
+<div class="part-rule"><span>Nine</span></div>
+<h2 class="head">SSL, TLS and HTTPS</h2>
+
+<blockquote><p>SSL was the original protocol for securing communications between a client like a web browser and a server. It encrypts data so that sensitive information like passwords or credit card numbers cannot be intercepted by attackers. Currently SSL is outdated due to some security vulnerabilities and has been replaced by TLS.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 250" role="img" aria-label="The relationship between SSL, TLS and HTTPS">
+<defs><marker id="c6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<rect x="16" y="30" width="200" height="80" rx="4" fill="#F7E3E0" stroke="#B04A3F" stroke-width="1.5"/>
+<text x="116" y="56" text-anchor="middle" font-family="IBM Plex Sans" font-size="16" font-weight="600" fill="#16202B">SSL</text>
+<text x="116" y="78" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#B04A3F">the original, 1995</text>
+<text x="116" y="96" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" font-weight="600" fill="#B04A3F">obsolete · do not use</text>
+
+<line x1="220" y1="70" x2="270" y2="70" stroke="#9C4A18" stroke-width="1.6" marker-end="url(#c6)"/>
+<text x="245" y="60" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#9C4A18">replaced by</text>
+
+<rect x="274" y="30" width="210" height="80" rx="4" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.8"/>
+<text x="379" y="56" text-anchor="middle" font-family="IBM Plex Sans" font-size="16" font-weight="600" fill="#16202B">TLS</text>
+<text x="379" y="78" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#2D7D5A">the modern encryption layer</text>
+<text x="379" y="96" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#2D7D5A">current version: TLS 1.3</text>
+
+<line x1="379" y1="114" x2="379" y2="142" stroke="#0E6E7E" stroke-width="1.6" marker-end="url(#c6)"/>
+<text x="392" y="134" font-family="IBM Plex Sans" font-size="10" fill="#0E6E7E">used by</text>
+
+<rect x="240" y="146" width="280" height="64" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.8"/>
+<text x="380" y="172" text-anchor="middle" font-family="IBM Plex Sans" font-size="16" font-weight="600" fill="#16202B">HTTPS</text>
+<text x="380" y="194" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#0A4F5B">= HTTP, unchanged, carried inside TLS</text>
+
+<rect x="540" y="30" width="204" height="180" rx="4" fill="#F8FAFB" stroke="#CBD4DC"/>
+<text x="556" y="52" font-family="IBM Plex Mono, monospace" font-size="11" fill="#8695A3" letter-spacing="0.5">WHAT TLS GIVES YOU</text>
+<text x="556" y="78" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">Confidentiality</text>
+<text x="556" y="94" font-family="IBM Plex Sans" font-size="10.5" fill="#53616F">nobody on the wire can read it</text>
+<text x="556" y="120" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">Integrity</text>
+<text x="556" y="136" font-family="IBM Plex Sans" font-size="10.5" fill="#53616F">nobody can alter it undetected</text>
+<text x="556" y="162" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">Authenticity</text>
+<text x="556" y="178" font-family="IBM Plex Sans" font-size="10.5" fill="#53616F">the certificate proves the server</text>
+<text x="556" y="192" font-family="IBM Plex Sans" font-size="10.5" fill="#53616F">really is who it claims</text>
+
+<text x="16" y="238" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">The names get used interchangeably in casual speech — "SSL certificate" is still the common phrase — but the thing running is always TLS.</text>
+</svg>
+<p class="cap"><b>Three names, one idea</b>HTTPS is not a separate protocol. It is exactly the HTTP from post 04, placed inside a TLS tunnel, on port 443 instead of 80.</p>
+</div>
+
+<div class="plain">
+<p class="tag">The third property is the one people forget</p>
+<p>Encryption is the obvious benefit, but <strong>authenticity</strong> matters just as much. Encrypting a conversation with an impostor achieves nothing — which is exactly the DNS-hijacking scenario from post 03. The certificate is what makes the encryption meaningful, by binding it to a verified identity.</p>
+<p>And note what the padlock does <em>not</em> mean. It says: this connection is encrypted, and this site really is the domain in the address bar. It says nothing whatsoever about whether that domain is trustworthy. A phishing site with a free certificate shows the same padlock as your bank.</p>
+</div>
+
+<div class="plain">
+<p class="tag">Where each piece appeared in this series</p>
+<dl>
+<dt>Post 03</dt>
+<dd>Nginx holds the certificate and terminates TLS on port 443, forwarding plaintext over loopback. Certbot fetches and renews the certificate from Let's Encrypt.</dd>
+<dt>Post 04</dt>
+<dd>The TLS handshake adds round trips on top of TCP's — the latency HTTP/3's QUIC was built to reclaim. <code>Strict-Transport-Security</code> forces the browser never to fall back to plain HTTP.</dd>
+<dt>Here</dt>
+<dd>The names themselves, and the fact that you will essentially never implement any of it. TLS is something you configure once and leave alone.</dd>
+</dl>
+</div>
+
+<div class="key">
+<p class="tag">Practically, all you do</p>
+<p>Get a certificate (Certbot, free, automatic). Terminate TLS at the proxy. Redirect port 80 to 443. Send HSTS. Let the library choose the cipher suites — hand-picking them is how people accidentally re-enable something broken. That's the whole job, and it's the same five steps whether you're serving ten people or ten million.</p>
+</div>
+</section>
+
+<!-- ══════════════ 10 ══════════════ -->
+<section id="glossary">
+<div class="part-rule"><span>Ten</span></div>
+<h2 class="head">Recap, then every word defined</h2>
+
+<div class="plain">
+<p class="tag">The whole post in one paragraph</p>
+<p>A <strong>status code</strong> is a three-digit verdict that lets software decide what to do before reading the body — and since caches, proxies, retry libraries and monitoring tools all act on it, lying about it corrupts far more than your own client. The first digit is the category: 1xx provisional, 2xx success, 3xx redirect, 4xx you erred, 5xx I erred. Within those, the distinctions that matter are <strong>201 vs 204</strong> (something was created vs there's deliberately nothing to send), <strong>301 vs 302</strong> (cached forever vs reversible), <strong>401 vs 403</strong> (we don't know you vs we know you and no), and <strong>502 vs 504</strong> (your upstream is dead vs your upstream is stuck). <strong>304</strong> is the hinge into caching: paired with an <strong>ETag</strong> and a conditional <code>If-None-Match</code> request, it lets a server confirm your saved copy is still valid for a few hundred bytes instead of a few megabytes. <strong>Content negotiation</strong> lets one URL serve many representations — <code>Accept-*</code> going out, <code>Content-*</code> coming back, and <code>Vary</code> warning caches that the answer depends on the question. <strong>Compression</strong> took the same 26 MB response down to 3.8 MB for one line of config. <strong>Persistent connections</strong> pay the TCP and TLS handshake once instead of per request. Large uploads move as <strong>multipart</strong> bodies split by a random boundary; large downloads move as <strong>streams</strong> so the first byte arrives immediately and neither side buffers the whole thing. And <strong>HTTPS</strong> is simply all of the above, unchanged, inside a TLS tunnel.</p>
+</div>
+
+<h3 class="sub">Glossary</h3>
+
+<details class="jargon" open>
+<summary>Status codes</summary>
+<div class="body">
+<dl>
+<dt>Status code</dt><dd>Three digits opening every response. The machine-readable verdict.</dd>
+<dt>Reason phrase</dt><dd>The words after it ("OK", "Not Found"). Courtesy only; software ignores them.</dd>
+<dt>100 Continue</dt><dd>"Headers accepted, send the body." Saves wasting bandwidth on a doomed upload.</dd>
+<dt>101 Switching Protocols</dt><dd>The handshake into WebSockets.</dd>
+<dt>200 OK</dt><dd>Success, with a body to read.</dd>
+<dt>201 Created</dt><dd>Success, and something new now exists. Usually carries a <code>Location</code> header.</dd>
+<dt>204 No Content</dt><dd>Success, and deliberately no body. Common on DELETE and CORS preflights.</dd>
+<dt>301 Moved Permanently</dt><dd>New address forever. Cached hard; effectively irreversible.</dd>
+<dt>302 Found</dt><dd>Temporary redirect. The original URL stays canonical.</dd>
+<dt>304 Not Modified</dt><dd>Your cached copy is still good. No body sent.</dd>
+<dt>400 Bad Request</dt><dd>Malformed or illogical input.</dd>
+<dt>401 Unauthorized</dt><dd>Actually means unauthenticated. Log in.</dd>
+<dt>403 Forbidden</dt><dd>Authenticated, but not permitted. Logging in again won't help.</dd>
+<dt>404 Not Found</dt><dd>No such resource. Sometimes returned deliberately in place of 403.</dd>
+<dt>405 Method Not Allowed</dt><dd>Path exists, verb doesn't. Usually a typo.</dd>
+<dt>409 Conflict</dt><dd>Well-formed but clashes with current state — a duplicate name, say.</dd>
+<dt>429 Too Many Requests</dt><dd>Rate limited. Read <code>Retry-After</code> and wait.</dd>
+<dt>500 Internal Server Error</dt><dd>Unhandled exception. Return nothing informative.</dd>
+<dt>501 Not Implemented</dt><dd>Not supported yet.</dd>
+<dt>502 Bad Gateway</dt><dd>The proxy got nothing usable from upstream. Check the process is running.</dd>
+<dt>503 Service Unavailable</dt><dd>Temporarily down or overloaded.</dd>
+<dt>504 Gateway Timeout</dt><dd>Upstream is alive but too slow. Check for a hung query.</dd>
+<dt>Upstream</dt><dd>The server further in, behind a proxy.</dd>
+</dl>
+</div>
+</details>
+
+<details class="jargon">
+<summary>Caching</summary>
+<div class="body">
+<dl>
+<dt>Cache</dt><dd>A saved copy kept to avoid asking again.</dd>
+<dt>Freshness</dt><dd>"May I use my copy without asking?" Governed by <code>max-age</code>.</dd>
+<dt>Validation</dt><dd>"Is my copy still correct?" Governed by ETags and conditional requests.</dd>
+<dt>Cache-Control</dt><dd>The policy header. <code>max-age=10</code>, <code>no-store</code>, <code>public</code>, <code>private</code>, <code>no-cache</code>.</dd>
+<dt>public vs private</dt><dd>Shared caches may keep it, vs browser only. Get this wrong on user data and one person's response reaches another.</dd>
+<dt>ETag</dt><dd>A fingerprint of a specific version of the content. <code>W/</code> marks a weak one.</dd>
+<dt>Hash</dt><dd>A function turning any data into a short fixed-length fingerprint; any change alters it completely.</dd>
+<dt>Last-Modified</dt><dd>Timestamp alternative to an ETag. Coarser — one-second resolution.</dd>
+<dt>Conditional request</dt><dd>A request that only wants a body if something changed. <code>If-None-Match</code>, <code>If-Modified-Since</code>.</dd>
+<dt>Cache busting</dt><dd>Changing the URL when content changes (<code>app.a3f91c.js</code>) so old entries become irrelevant rather than wrong.</dd>
+<dt>Stale</dt><dd>A cached copy that is out of date but still being served — and failing silently.</dd>
+</dl>
+</div>
+</details>
+
+<details class="jargon">
+<summary>Negotiation and compression</summary>
+<div class="body">
+<dl>
+<dt>Representation</dt><dd>One particular form of a resource: this format, this language, this encoding.</dd>
+<dt>Accept / Accept-Language / Accept-Encoding</dt><dd>The client's preferences for format, language and compression.</dd>
+<dt>Content-Type / -Language / -Encoding</dt><dd>What the server actually chose.</dd>
+<dt>q-value</dt><dd>A 0–1 ranking in an Accept header. <code>en;q=0.9</code> means "English is nearly as good."</dd>
+<dt>Vary</dt><dd>Tells caches which request headers the answer depends on. Mandatory whenever you negotiate.</dd>
+<dt>gzip / Brotli / zstd</dt><dd>Compression formats. gzip is universal; Brotli compresses text better; zstd is faster.</dd>
+<dt>Fingerprinting</dt><dd>Identifying a browser by the combination of its headers and settings, without cookies.</dd>
+<dt>BREACH / CRIME</dt><dd>Attacks that recover secrets by observing how compressed response sizes change.</dd>
+</dl>
+</div>
+</details>
+
+<details class="jargon">
+<summary>Connections and large payloads</summary>
+<div class="body">
+<dl>
+<dt>Persistent connection</dt><dd>Reusing one TCP connection for many requests. Default since HTTP/1.1.</dd>
+<dt>Keep-alive</dt><dd>The mechanism and header enabling that. <code>timeout</code> and <code>max</code> tune it.</dd>
+<dt>Multipart form data</dt><dd>A request body split into labelled parts, for files and mixed fields.</dd>
+<dt>Boundary</dt><dd>The random delimiter string separating those parts. Declared in <code>Content-Type</code>.</dd>
+<dt>Chunked transfer encoding</dt><dd>Sending a body in size-prefixed pieces when the total length isn't known upfront.</dd>
+<dt>Server-Sent Events</dt><dd>A one-way push format over a held-open response. <code>text/event-stream</code>, lines prefixed <code>data:</code>.</dd>
+<dt>Streaming</dt><dd>Sending as you generate, so the first byte arrives immediately and neither side buffers everything.</dd>
+<dt>Path traversal</dt><dd>Using <code>../</code> in a supplied filename to write outside the intended directory.</dd>
+</dl>
+</div>
+</details>
+
+<details class="jargon">
+<summary>Encryption</summary>
+<div class="body">
+<dl>
+<dt>SSL</dt><dd>The original encryption protocol. Obsolete, though the name survives in casual usage.</dd>
+<dt>TLS</dt><dd>Its modern replacement. Current recommended version: TLS 1.3.</dd>
+<dt>HTTPS</dt><dd>HTTP carried inside TLS. Not a separate protocol.</dd>
+<dt>Confidentiality / integrity / authenticity</dt><dd>Nobody can read it; nobody can alter it undetected; the server is provably who it claims.</dd>
+<dt>Certificate</dt><dd>The signed file binding a domain name to a key. What the padlock reflects.</dd>
+<dt>Cipher suite</dt><dd>The specific set of algorithms negotiated for a connection. Let the library pick.</dd>
+</dl>
+</div>
+</details>
+
+<div class="key">
+<p class="tag">If you remember three things</p>
+<p><strong>One</strong> — the status code is not decoration for your client; it is the signal every cache, proxy and retry mechanism in the path acts on, so returning 200 with an error body breaks things you can't see. <strong>Two</strong> — caching's hard problem is never storage, it's knowing when your copy went wrong, and stale caches fail silently while looking perfectly healthy. <strong>Three</strong> — compression, keep-alive and streaming are each one line of configuration and each worth more than almost any code you will write that week.</p>
+</div>
+</section>
+
+<footer>
+<div class="nextprev">
+<a href="./04-http-pt-1.html"><span class="lbl">← PREVIOUS</span><span class="ttl">Understanding HTTP: where it all starts</span></a>
+</div>
+  <p>Annotated from the walkthrough video. Whiteboard sketches redrawn as vector diagrams; proxy captures transcribed as text; definitions, analogies and security notes added.</p>
+</footer>
+
+</div>
+</body>
+</html>

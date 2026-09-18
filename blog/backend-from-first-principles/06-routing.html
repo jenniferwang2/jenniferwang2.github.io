@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Routing: the where of a request — Backend From First Principles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF1F4; --card:#FFF;
+  --ink:#16202B; --ink-soft:#53616F; --ink-faint:#8695A3;
+  --rule:#CBD4DC; --rule-soft:#DDE3E9;
+  --teal:#0E6E7E; --teal-deep:#0A4F5B; --teal-wash:#DCEAEC;
+  --amber:#9C4A18; --amber-wash:#F6E8DE;
+  --green:#2D7D5A; --green-wash:#DCEBE3;
+  --red:#B04A3F; --red-wash:#F7E3E0;
+  --violet:#5B4B8A; --violet-wash:#E4E0EF;
+  --term:#131C25;
+  --measure:70ch;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:17px;line-height:1.65;
+  -webkit-font-smoothing:antialiased}
+.shell{max-width:1180px;margin:0 auto;padding:0 28px}
+
+.serieshead{display:flex;align-items:center;gap:14px;padding:26px 0 0;text-decoration:none}
+.serieshead .dot{width:7px;height:7px;background:var(--teal);border-radius:50%}
+.serieshead span{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;color:var(--ink-faint)}
+.serieshead:hover span{color:var(--teal)}
+
+.mast{border-bottom:1px solid var(--rule);padding:48px 0 44px}
+.mast .kicker{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.06em;color:var(--teal);margin:0 0 18px}
+.mast h1{font-family:'IBM Plex Serif',Georgia,serif;font-weight:600;
+  font-size:clamp(34px,5.4vw,58px);line-height:1.06;letter-spacing:-.02em;margin:0 0 20px;max-width:17ch}
+.mast .standfirst{font-family:'IBM Plex Serif',Georgia,serif;font-size:19px;line-height:1.62;
+  color:var(--ink-soft);max-width:58ch;margin:0}
+.mast .standfirst em{color:var(--ink);font-style:italic}
+
+.contents{border:1px solid var(--rule);background:var(--card);padding:26px 30px 30px;margin:38px 0 60px;max-width:540px}
+.contents h2{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.06em;color:var(--ink-faint);margin:0 0 14px;font-weight:500}
+.contents ol{margin:0;padding:0;list-style:none;counter-reset:toc}
+.contents li{counter-increment:toc;border-top:1px solid var(--rule-soft)}
+.contents li:first-child{border-top:none}
+.contents a{display:flex;gap:14px;align-items:baseline;padding:9px 0;text-decoration:none;color:var(--ink)}
+.contents a:hover{color:var(--teal)}
+.contents a::before{content:counter(toc,decimal-leading-zero);font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--teal)}
+
+section{padding:8px 0 60px}
+.part-rule{display:flex;align-items:center;gap:16px;margin:56px 0 26px}
+.part-rule span{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.06em;color:var(--teal);white-space:nowrap}
+.part-rule::after{content:"";height:1px;background:var(--rule);flex:1}
+
+h2.head{font-family:'IBM Plex Serif',Georgia,serif;font-size:clamp(26px,3.4vw,36px);
+  font-weight:600;letter-spacing:-.015em;line-height:1.15;margin:0 0 22px;max-width:24ch}
+h3.sub{font-size:20px;font-weight:600;margin:44px 0 14px;letter-spacing:-.005em}
+h4.minor{font-size:16.5px;font-weight:600;margin:30px 0 10px}
+p{margin:0 0 18px;max-width:var(--measure)}
+ul,ol{max-width:var(--measure);padding-left:22px}
+li{margin-bottom:8px}
+a{color:var(--teal)}
+code{font-family:'IBM Plex Mono',monospace;font-size:.875em;background:#E2E7EC;padding:1px 5px;border-radius:2px}
+
+.hop{display:flex;gap:18px;align-items:flex-start;margin:56px 0 20px}
+.hop-num{flex:0 0 auto;width:44px;height:44px;border:1px solid var(--teal);color:var(--teal);
+  display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:16px}
+.hop-txt h3{font-family:'IBM Plex Serif',Georgia,serif;font-size:27px;font-weight:600;margin:0 0 4px;line-height:1.2}
+.hop-txt p{margin:0;color:var(--ink-soft);font-size:15px;font-family:'IBM Plex Mono',monospace}
+
+figure{margin:34px 0;background:var(--card);border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+figure img{display:block;width:100%;height:auto}
+figcaption{padding:16px 22px 18px;border-top:1px solid var(--rule-soft);font-size:14.5px;line-height:1.55;color:var(--ink-soft)}
+figcaption b{display:block;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.05em;color:var(--teal);font-weight:500;margin-bottom:6px}
+
+.dia{margin:34px 0;background:var(--card);border:1px solid var(--rule);border-radius:3px;padding:26px 24px 20px}
+.dia svg{display:block;width:100%;height:auto}
+.dia .cap{margin:18px 0 0;padding-top:14px;border-top:1px solid var(--rule-soft);
+  font-size:14px;line-height:1.55;color:var(--ink-soft);max-width:none}
+.dia .cap b{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.05em;color:var(--teal);font-weight:500;display:block;margin-bottom:5px}
+
+pre{background:var(--term);color:#D6DEE6;font-family:'IBM Plex Mono',monospace;font-size:12.5px;
+  line-height:1.55;padding:22px 24px;overflow-x:auto;margin:26px 0;border-radius:3px}
+pre b{color:#7FD4C1;font-weight:500}
+pre i{color:#7C8A97;font-style:normal}
+pre u{color:#E8B48A;text-decoration:none}
+pre s{color:#C5A3E0;text-decoration:none}
+
+.tbl{margin:26px 0;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{text-align:left;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.05em;
+  color:var(--ink-faint);font-weight:500;padding:0 16px 9px 0;border-bottom:1px solid var(--rule);white-space:nowrap}
+td{padding:11px 16px 11px 0;border-bottom:1px solid var(--rule-soft);vertical-align:top}
+td code{font-size:12.5px;background:transparent;padding:0;color:var(--teal-deep)}
+tr:last-child td{border-bottom:none}
+
+blockquote{margin:30px 0;padding:2px 0 2px 24px;border-left:2px solid var(--rule);max-width:64ch;
+  font-family:'IBM Plex Serif',Georgia,serif;font-size:18px;line-height:1.6;color:var(--ink-soft);font-style:italic}
+blockquote p{margin:0;max-width:none}
+
+.sec{background:var(--amber-wash);border-left:2px solid var(--amber);padding:20px 24px;margin:30px 0;max-width:var(--measure)}
+.sec .tag{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--amber);margin-bottom:8px}
+.sec p{margin-bottom:12px;font-size:15.5px}
+.sec p:last-child{margin-bottom:0}
+.sec code{background:#EFDECF}
+
+.key{background:var(--teal-wash);border-left:2px solid var(--teal);padding:20px 24px;margin:30px 0;max-width:var(--measure)}
+.key .tag{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--teal-deep);margin-bottom:8px}
+.key p{margin:0;font-size:15.5px}
+.key code{background:#CADFE2}
+
+.annot{border-left:2px solid var(--teal);padding:4px 0 4px 20px;margin:26px 0;max-width:var(--measure)}
+.annot p:last-child{margin-bottom:0}
+.annot .lead{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.05em;color:var(--teal);margin-bottom:10px}
+
+/* ── beginner layer ── */
+.plain{background:var(--card);border:1px solid var(--rule);border-left:2px solid var(--violet);
+  padding:20px 24px;margin:28px 0;max-width:var(--measure)}
+.plain .tag{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--violet);margin-bottom:10px}
+.plain p{margin-bottom:12px;font-size:15.5px}
+.plain p:last-child{margin-bottom:0}
+.plain ul,.plain ol{font-size:15.5px;margin:0 0 12px}
+.plain code{background:#E9E5F3}
+.plain dl{margin:0;font-size:15.5px}
+.plain dt{font-weight:600;margin-top:12px}
+.plain dt:first-child{margin-top:0}
+.plain dd{margin:3px 0 0;color:var(--ink-soft)}
+
+.anal{background:var(--green-wash);border-left:2px solid var(--green);padding:18px 24px;margin:26px 0;max-width:var(--measure)}
+.anal .tag{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--green);margin-bottom:8px}
+.anal p{margin:0;font-size:15.5px}
+.anal code{background:#C9DFD3}
+
+.jargon{margin:26px 0;max-width:var(--measure);border:1px solid var(--rule);background:var(--card)}
+.jargon summary{cursor:pointer;padding:14px 20px;font-family:'IBM Plex Mono',monospace;font-size:12px;
+  letter-spacing:.05em;color:var(--teal);list-style:none}
+.jargon summary::-webkit-details-marker{display:none}
+.jargon summary::before{content:"▸ ";color:var(--teal)}
+.jargon[open] summary::before{content:"▾ "}
+.jargon summary:hover{background:#F6F8F9}
+.jargon .body{padding:4px 20px 18px;border-top:1px solid var(--rule-soft)}
+.jargon dl{margin:0;font-size:15px}
+.jargon dt{font-weight:600;margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:13.5px;color:var(--teal-deep)}
+.jargon dt:first-child{margin-top:12px}
+.jargon dd{margin:4px 0 0;color:var(--ink-soft);max-width:66ch}
+
+.primer{border:1px solid var(--teal);background:var(--card);padding:30px 32px 34px;margin:38px 0 56px}
+.primer h2{font-family:'IBM Plex Serif',Georgia,serif;font-size:28px;font-weight:600;margin:0 0 6px}
+.primer .lede{color:var(--ink-soft);font-size:15.5px;margin:0 0 24px;max-width:62ch}
+.primer h3{font-size:17px;font-weight:600;margin:26px 0 8px}
+.primer p{font-size:15.5px}
+
+footer{border-top:1px solid var(--rule);padding:40px 0 80px;margin-top:40px;font-size:14.5px;color:var(--ink-faint)}
+footer a{text-decoration:none}
+.nextprev{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:26px}
+.nextprev a{display:block;border:1px solid var(--rule);background:var(--card);padding:16px 20px;
+  text-decoration:none;color:var(--ink);flex:1;min-width:240px}
+.nextprev a:hover{border-color:var(--teal)}
+.nextprev .lbl{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.05em;color:var(--teal);display:block;margin-bottom:5px}
+.nextprev .ttl{font-family:'IBM Plex Serif',Georgia,serif;font-size:16.5px;font-weight:600}
+
+@media (max-width:820px){
+  body{font-size:16px}
+  .shell{padding:0 18px}
+  .dia{padding:18px 14px 14px}
+  pre{font-size:11px;padding:16px}
+  .hop{gap:14px}
+  .hop-num{width:38px;height:38px;font-size:14px}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<a class="serieshead" href="./"><span class="dot"></span><span>BACKEND FROM FIRST PRINCIPLES · POST 06</span></a>
+
+<header class="mast">
+  <p class="kicker">Backend from first principles · annotated walkthrough</p>
+  <h1>Routing: the where of a request</h1>
+  <p class="standfirst">If the method is what you want done, the route is where you want it done. Static paths, path parameters, query strings, nesting, versioning, and the catch-all at the end. <em>Every concept paired with the capture that proves it.</em></p>
+</header>
+
+<nav class="contents">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#primer">Start here: the anatomy of a URL</a></li>
+    <li><a href="#what-where">The what and the where</a></li>
+    <li><a href="#static">Static routes</a></li>
+    <li><a href="#dynamic">Dynamic routes and path parameters</a></li>
+    <li><a href="#query">Query parameters</a></li>
+    <li><a href="#nested">Nested routes</a></li>
+    <li><a href="#versioning">Route versioning and deprecation</a></li>
+    <li><a href="#catchall">The catch-all route</a></li>
+    <li><a href="#glossary">Recap and glossary</a></li>
+  </ol>
+</nav>
+
+<blockquote><p>In the previous video we talked about different HTTP methods and how they are important in the HTTP semantics. In a way, all these HTTP methods describe your intent — you can say these HTTP methods express the <em>what</em> of a request. And the role of routing is that it expresses the <em>where</em> of a request.</p></blockquote>
+
+<!-- ══════════════ 0 ══════════════ -->
+<section id="primer">
+<div class="part-rule"><span>Zero</span></div>
+<h2 class="head">Start here: the anatomy of a URL</h2>
+
+<p>Posts 04 and 05 took apart the HTTP message. This one takes apart the second field of its very first line — the path — and shows how a server turns it into a decision about which code to run. Before any of that, it's worth naming the parts of a URL, because the whole post is about telling them apart.</p>
+
+<div class="dia">
+<svg viewBox="0 0 760 300" role="img" aria-label="The parts of a URL">
+<defs><marker id="d0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<rect x="16" y="26" width="102" height="30" rx="3" fill="#F4F6F8" stroke="#CBD4DC"/>
+<text x="67" y="46" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#16202B">https://</text>
+<rect x="120" y="26" width="148" height="30" rx="3" fill="#F4F6F8" stroke="#CBD4DC"/>
+<text x="194" y="46" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#16202B">api.example.com</text>
+<rect x="270" y="26" width="52" height="30" rx="3" fill="#F4F6F8" stroke="#CBD4DC"/>
+<text x="296" y="46" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#16202B">:443</text>
+<rect x="324" y="26" width="196" height="30" rx="3" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.8"/>
+<text x="422" y="46" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#16202B">/api/users/123/posts</text>
+<rect x="522" y="26" width="140" height="30" rx="3" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.8"/>
+<text x="592" y="46" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#16202B">?page=2&amp;limit=20</text>
+<rect x="664" y="26" width="80" height="30" rx="3" fill="#F4F6F8" stroke="#CBD4DC"/>
+<text x="704" y="46" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#8695A3">#section</text>
+
+<line x1="67" y1="60" x2="67" y2="86" stroke="#8695A3" stroke-width="1.2" marker-end="url(#d0)"/>
+<text x="67" y="102" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" font-weight="600" fill="#53616F">scheme</text>
+<text x="67" y="118" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#8695A3">which protocol</text>
+
+<line x1="194" y1="60" x2="194" y2="140" stroke="#8695A3" stroke-width="1.2" marker-end="url(#d0)"/>
+<text x="194" y="156" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" font-weight="600" fill="#53616F">host</text>
+<text x="194" y="172" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#8695A3">which machine — DNS resolves this</text>
+
+<line x1="296" y1="60" x2="296" y2="86" stroke="#8695A3" stroke-width="1.2" marker-end="url(#d0)"/>
+<text x="300" y="102" font-family="IBM Plex Sans" font-size="11.5" font-weight="600" fill="#53616F">port</text>
+<text x="300" y="118" font-family="IBM Plex Sans" font-size="10.5" fill="#8695A3">which process — usually implied</text>
+
+<line x1="422" y1="60" x2="422" y2="196" stroke="#0E6E7E" stroke-width="1.6" marker-end="url(#d0)"/>
+<text x="422" y="214" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#0E6E7E">path</text>
+<text x="422" y="232" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#0A4F5B">which resource — this post is about this field</text>
+
+<line x1="592" y1="60" x2="592" y2="140" stroke="#5B4B8A" stroke-width="1.6" marker-end="url(#d0)"/>
+<text x="592" y="158" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#5B4B8A">query string</text>
+<text x="592" y="174" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#5B4B8A">key–value extras — section five</text>
+
+<line x1="704" y1="60" x2="704" y2="86" stroke="#8695A3" stroke-width="1.2" marker-end="url(#d0)"/>
+<text x="704" y="102" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" font-weight="600" fill="#53616F">fragment</text>
+<text x="704" y="118" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#8695A3">never sent</text>
+<text x="704" y="132" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#8695A3">to the server</text>
+
+<line x1="16" y1="252" x2="744" y2="252" stroke="#DDE3E9"/>
+<text x="16" y="274" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">Post 03 covered host and port — DNS and the firewall get you to the right process. Everything from the path onward is that process's own business.</text>
+<text x="16" y="292" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">Note the fragment: the browser keeps it entirely to itself. A server can never see what came after the <tspan font-family="IBM Plex Mono, monospace">#</tspan>.</text>
+</svg>
+<p class="cap"><b>Six parts, and only two of them are routing</b>The path and the query string are what the server matches on. The rest was already resolved before the request arrived.</p>
+</div>
+
+<div class="primer">
+<h2>Four words, before anything else</h2>
+<p class="lede">Routing has its own small vocabulary, and two of the terms sound almost identical while meaning different things. Fixing them now saves confusion later.</p>
+
+<h3>1 · Route</h3>
+<p>A <strong>pattern</strong> the server knows about, paired with the code to run when a request matches it. <code>GET /api/books</code> is a route. So is <code>GET /api/users/:id</code>. The word is used loosely for both the pattern and the URL that matches it.</p>
+
+<h3>2 · Handler</h3>
+<p>The function that runs when a route matches. It receives the request, does the work — query a database, check permissions, build a response — and returns something. Routing's entire job is choosing which handler to call.</p>
+
+<h3>3 · Path parameter</h3>
+<p>A variable slot <em>inside</em> the path. In <code>/api/users/123</code> matched against the pattern <code>/api/users/:id</code>, the <code>123</code> is a path parameter. It identifies <em>which</em> resource you mean.</p>
+
+<h3>4 · Query parameter</h3>
+<p>A key–value pair <em>after</em> the <code>?</code>. In <code>/api/search?query=some+value</code>, <code>query=some+value</code> is a query parameter. It modifies <em>how</em> you want the resource — filter it, sort it, page through it.</p>
+<p>The two are easy to confuse because both carry data from client to server. The distinction is semantic and it runs through everything below: <strong>path parameters identify, query parameters modify</strong>.</p>
+</div>
+
+<div class="anal">
+<p class="tag">The analogy this post runs on</p>
+<p>A library. The <strong>method</strong> is what you intend — borrow, return, donate. The <strong>path</strong> is where you're standing: the building, the floor, the shelf, the specific book. A <strong>path parameter</strong> is the shelf number, because without it "the shelf" means nothing. A <strong>query parameter</strong> is what you say to the librarian once you're there — "only the ones in French," "sorted by date," "just the first twenty." And the <strong>catch-all</strong> is the sign at the end of a corridor that says <em>nothing down here</em>, rather than leaving you to wander.</p>
+</div>
+</section>
+
+<!-- ══════════════ 1 ══════════════ -->
+<section id="what-where">
+<div class="part-rule"><span>One</span></div>
+<h2 class="head">The what and the where</h2>
+
+<div class="dia">
+<svg viewBox="0 0 760 300" role="img" aria-label="Methods express the what, routing expresses the where">
+<defs><marker id="d1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<ellipse cx="180" cy="90" rx="146" ry="66" fill="none" stroke="#5B8ABF" stroke-width="2.4"/>
+<text x="140" y="74" font-family="IBM Plex Sans" font-size="30" font-weight="600" fill="#5B8ABF">GET</text>
+<text x="160" y="112" font-family="IBM Plex Sans" font-size="30" font-weight="600" fill="#5B8ABF">POST</text>
+
+<path d="M322 76 C 380 60, 400 50, 452 50" fill="none" stroke="#5B8ABF" stroke-width="2.2" marker-end="url(#d1)"/>
+<text x="466" y="60" font-family="IBM Plex Sans" font-size="28" fill="#5B8ABF">Intent</text>
+
+<text x="40" y="200" font-family="IBM Plex Sans" font-size="30" fill="#5B8ABF">"What"</text>
+<path d="M214 152 C 240 190, 280 200, 320 196" fill="none" stroke="#5B8ABF" stroke-width="2.2" marker-end="url(#d1)"/>
+
+<ellipse cx="596" cy="150" rx="106" ry="46" fill="none" stroke="#5B8ABF" stroke-width="2.4"/>
+<text x="596" y="162" text-anchor="middle" font-family="IBM Plex Sans" font-size="28" font-weight="600" fill="#5B8ABF">Routing</text>
+<path d="M556 196 C 546 214, 520 222, 492 224" fill="none" stroke="#5B8ABF" stroke-width="2.2" marker-end="url(#d1)"/>
+<text x="330" y="240" font-family="IBM Plex Sans" font-size="30" fill="#5B8ABF">Where</text>
+
+<line x1="16" y1="264" x2="744" y2="264" stroke="#DDE3E9"/>
+<text x="16" y="288" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">Two halves of one instruction. Neither is useful without the other: an intent with no address goes nowhere, an address with no intent says nothing.</text>
+</svg>
+<p class="cap"><b>The opening sketch, redrawn</b>Post 04 covered the left half. This post is the right half, and the key idea is that the server needs <em>both</em> before it can decide anything.</p>
+</div>
+
+<blockquote><p>Where do you want to send your intention? Which resource do you want to perform your action on? You need to tell the server where you want to go. For example, you have a request and the method is GET — your intention is fetching some data from the server — and your route path is <code>/users</code>, and the server sends you an array of users.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 320" role="img" aria-label="GET plus slash users maps to a handler which queries the database and returns data">
+<defs><marker id="d2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<ellipse cx="86" cy="60" rx="62" ry="32" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.8"/>
+<text x="86" y="68" text-anchor="middle" font-family="IBM Plex Sans" font-size="22" font-weight="600" fill="#16202B">GET</text>
+<text x="86" y="108" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#2D7D5A">the what</text>
+
+<line x1="150" y1="60" x2="192" y2="60" stroke="#0E6E7E" stroke-width="1.8" marker-end="url(#d2)"/>
+
+<ellipse cx="270" cy="60" rx="74" ry="32" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.8"/>
+<text x="270" y="68" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="19" font-weight="600" fill="#16202B">/users</text>
+<text x="270" y="108" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#0A4F5B">the where</text>
+
+<line x1="346" y1="60" x2="388" y2="60" stroke="#0E6E7E" stroke-width="1.8" marker-end="url(#d2)"/>
+
+<rect x="392" y="34" width="160" height="52" rx="4" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.8"/>
+<text x="472" y="56" text-anchor="middle" font-family="IBM Plex Sans" font-size="13.5" font-weight="600" fill="#16202B">the handler</text>
+<text x="472" y="74" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#5B4B8A">one function, chosen by both</text>
+
+<line x1="472" y1="90" x2="472" y2="122" stroke="#5B4B8A" stroke-width="1.6" marker-end="url(#d2)"/>
+<text x="484" y="112" font-family="IBM Plex Sans" font-size="11" fill="#5B4B8A">business logic, auth checks</text>
+
+<rect x="392" y="126" width="160" height="42" rx="4" fill="#F4F6F8" stroke="#CBD4DC" stroke-width="1.4"/>
+<text x="472" y="152" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" fill="#53616F">the database</text>
+
+<path d="M556 147 C 620 147, 640 120, 640 96" fill="none" stroke="#2D7D5A" stroke-width="1.8" marker-end="url(#d2)"/>
+<text x="600" y="176" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#2D7D5A">rows come back</text>
+
+<rect x="576" y="34" width="168" height="56" rx="4" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.8"/>
+<text x="660" y="58" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="13" fill="#16202B">[ { }, { }, { } ]</text>
+<text x="660" y="78" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#2D7D5A">an array of users</text>
+
+<line x1="16" y1="206" x2="744" y2="206" stroke="#DDE3E9"/>
+<text x="16" y="230" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#8695A3" letter-spacing="0.5">THE ONE-SENTENCE DEFINITION</text>
+<rect x="16" y="242" width="728" height="56" rx="4" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.6"/>
+<text x="380" y="268" text-anchor="middle" font-family="IBM Plex Sans" font-size="15" font-weight="600" fill="#16202B">Routing is mapping a method and a URL path to server-side logic.</text>
+<text x="380" y="288" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#0A4F5B">Everything in the rest of this post is a variation on that sentence.</text>
+</svg>
+<p class="cap"><b>The second sketch, redrawn</b>The scribbled version in the notes is this: <code>GET</code> → <code>/users</code> → data, with the two joining into something that talks to a database and comes back up. That's the whole shape of a backend request.</p>
+</div>
+
+<blockquote><p>The combination of these two — your intention, your action, and your route, the URL parameters, the address — the server takes this and maps it to a particular handler or a set of instructions. And to summarize it, you can say that routing is basically mapping URL parameters to server-side logic. That's all there is to it.</p></blockquote>
+
+<div class="plain">
+<p class="tag">Why it takes both, and not just the path</p>
+<p>A path on its own is ambiguous. <code>/api/books</code> could mean "give me the books" or "here is a new book" — identical address, opposite intentions. The method resolves it.</p>
+<p>So the server builds its lookup key from the two together. <code>GET /api/books</code> and <code>POST /api/books</code> are <strong>different routes that happen to share a path</strong>, handled by different functions that may have nothing in common. This is why post 04 insisted the method isn't decoration: it's half of the primary key.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>A building's address plus what you're there to do. "42 Wilson Street, to deliver a parcel" and "42 Wilson Street, to collect one" send you to two different desks. Nobody is confused by this in a building, and servers aren't either — but people new to APIs often expect the URL alone to identify the operation, and it doesn't.</p>
+</div>
+
+<div class="plain">
+<p class="tag">A note on the word "resource"</p>
+<p>In <code>/api/books</code>, <code>books</code> is called a <strong>resource</strong> — the noun the route is about. The convention is that paths name <em>things</em> and methods name <em>actions</em>, so you write <code>DELETE /api/books/12</code> rather than <code>GET /api/deleteBook?id=12</code>.</p>
+<p>That convention is most of what people mean by <strong>REST</strong>, which gets its own treatment later in the series. For now it's enough to know that routes are conventionally nouns, and that this is why they read almost like English.</p>
+</div>
+
+<h3 class="sub">The demo</h3>
+
+<p>Everything below is fired from one small React page, and watched through an intercepting proxy — the same setup as posts 04 and 05.</p>
+<figure>
+<img src="images/06-01-the-routing-demo.jpg" width="1048" height="1534" loading="lazy" decoding="async" alt="The routing demo">
+<figcaption><b>The routing demo</b>Every concept in this post has a button. Static, dynamic with path params, query params, nested, versioning and — below the fold — the catch-all.</figcaption>
+</figure>
+
+</section>
+
+<!-- ══════════════ 2 ══════════════ -->
+<section id="static">
+<div class="part-rule"><span>Two</span></div>
+<h2 class="head">Static routes</h2>
+
+<blockquote><p>The first two examples that we discussed — the <code>/api/books</code> for GET and POST — these kinds of routes are called static routes. Why are they called static routes? For obvious reasons: because they don't have any variable parameters inside the route.</p></blockquote>
+
+<pre><b>GET /api/books HTTP/1.1</b>
+<u>Host</u>: localhost:3001
+
+<b>HTTP/1.1 200 OK</b>
+<u>Content-Type</u>: application/json; charset=utf-8
+<u>Content-Length</u>: 102
+
+<s>{ "data": [
+    { "id": 1, "title": "Book 1", "author": "Author 1" },
+    { "id": 2, "title": "Book 2", "author": "Author 2" }
+] }</s></pre>
+
+<pre><b>POST /api/books HTTP/1.1</b>   <i># same path, different method</i>
+<u>Host</u>: localhost:3001
+<u>Content-Length</u>: 45
+
+<b>HTTP/1.1 200 OK</b>
+<i># creates a book, then returns the collection again</i></pre>
+<figure>
+<img src="images/06-02-get-api-books.jpg" width="1500" height="1250" loading="lazy" decoding="async" alt="The first request: GET /api/books">
+<figcaption><b>The first request: <code>GET /api/books</code></b>Three rows in the history: the <code>GET</code>, the preflight <code>OPTIONS</code>, and the <code>POST</code>. Note the second and third share the path of the first.</figcaption>
+</figure>
+
+<figure>
+<img src="images/06-03-the-books-response.jpg" width="1500" height="947" loading="lazy" decoding="async" alt="What /api/books returns">
+<figcaption><b>What <code>/api/books</code> returns</b>A <code>data</code> array of two books. The path had no variables in it, and the handler behind it always does the same kind of work — that's what makes it static.</figcaption>
+</figure>
+
+
+<div class="plain">
+<p class="tag">"Static" means the pattern contains no variables</p>
+<p>The string <code>/api/books</code> is a constant. It is the same on every request, it matches only itself, and the handler behind it always does the same kind of work. Nothing in the path has to be extracted or interpreted.</p>
+<p>That's the entire definition. It isn't about the <em>response</em> being static — the list of books changes whenever someone adds one. It's about the <em>pattern</em> having no slots in it.</p>
+</div>
+
+<div class="dia">
+<svg viewBox="0 0 760 290" role="img" aria-label="Method plus path form a unique key mapping to a handler">
+<defs><marker id="d3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#8695A3" letter-spacing="0.5">TWO REQUESTS, ONE PATH</text>
+
+<rect x="16" y="34" width="100" height="34" rx="3" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.5"/>
+<text x="66" y="56" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="600" fill="#16202B">GET</text>
+<rect x="122" y="34" width="180" height="34" rx="3" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.5"/>
+<text x="212" y="56" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="13" fill="#16202B">/api/books</text>
+
+<rect x="16" y="108" width="100" height="34" rx="3" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.5"/>
+<text x="66" y="130" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="600" fill="#16202B">POST</text>
+<rect x="122" y="108" width="180" height="34" rx="3" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.5"/>
+<text x="212" y="130" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="13" fill="#16202B">/api/books</text>
+
+<text x="212" y="88" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#8695A3">— identical string —</text>
+
+<line x1="306" y1="51" x2="360" y2="51" stroke="#0E6E7E" stroke-width="1.6" marker-end="url(#d3)"/>
+<line x1="306" y1="125" x2="360" y2="125" stroke="#5B4B8A" stroke-width="1.6" marker-end="url(#d3)"/>
+
+<rect x="364" y="30" width="200" height="42" rx="3" fill="#F8FAFB" stroke="#2D7D5A" stroke-width="1.4"/>
+<text x="464" y="56" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">"GET /api/books"</text>
+<rect x="364" y="104" width="200" height="42" rx="3" fill="#F8FAFB" stroke="#5B4B8A" stroke-width="1.4"/>
+<text x="464" y="130" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="#16202B">"POST /api/books"</text>
+<text x="464" y="88" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" font-weight="600" fill="#9C4A18">two different keys</text>
+
+<line x1="568" y1="51" x2="614" y2="51" stroke="#0E6E7E" stroke-width="1.6" marker-end="url(#d3)"/>
+<line x1="568" y1="125" x2="614" y2="125" stroke="#5B4B8A" stroke-width="1.6" marker-end="url(#d3)"/>
+
+<rect x="618" y="30" width="126" height="42" rx="3" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.5"/>
+<text x="681" y="48" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">listBooks()</text>
+<text x="681" y="64" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#2D7D5A">reads</text>
+
+<rect x="618" y="104" width="126" height="42" rx="3" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.5"/>
+<text x="681" y="122" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#16202B">createBook()</text>
+<text x="681" y="138" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#5B4B8A">writes</text>
+
+<line x1="16" y1="176" x2="744" y2="176" stroke="#DDE3E9"/>
+<text x="16" y="200" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">The server concatenates the method and the path into one lookup key. Two functions with nothing in common, sharing an address and never colliding.</text>
+<text x="16" y="224" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#8695A3" letter-spacing="0.5">WHICH IS WHY A MISMATCH IS ITS OWN ERROR</text>
+<rect x="16" y="238" width="728" height="40" rx="3" fill="#F6E8DE" stroke="#9C4A18" stroke-width="1.4"/>
+<text x="32" y="263" font-family="IBM Plex Sans" font-size="12.5" fill="#16202B"><tspan font-family="IBM Plex Mono, monospace">PUT /api/books</tspan> matches no key at all → <tspan font-weight="600">405 Method Not Allowed</tspan>, not 404. The path exists; the combination doesn't.</text>
+</svg>
+<p class="cap"><b>Method plus path is the primary key</b>This is the mechanism behind post 05's <code>405</code>: the router found the path but no handler registered for that verb.</p>
+</div>
+
+<div class="key">
+<p class="tag">One consequence worth internalising</p>
+<p>Because the key includes the method, you never need to encode the action in the path. A route called <code>/api/getBooks</code> is redundant at best and misleading at worst — it invites someone to eventually write <code>POST /api/getBooks</code>, which reads as nonsense and defeats every convention a proxy or cache relies on.</p>
+</div>
+</section>
+
+<!-- ══════════════ 3 ══════════════ -->
+<section id="dynamic">
+<div class="part-rule"><span>Three</span></div>
+<h2 class="head">Dynamic routes and path parameters</h2>
+
+<blockquote><p>The method is GET and the route is <code>/api/users/123</code>. In this case this is supposed to express the ID of the user. When we make this request the server can extract this particular ID from the route path, and it can do whatever operation it wants — fetching the user from the database and returning the details of the user.</p></blockquote>
+
+<pre><b>GET /api/users/123 HTTP/1.1</b>
+<u>Host</u>: localhost:3001
+
+<b>HTTP/1.1 200 OK</b>
+<u>Content-Length</u>: 43
+<s>{ "message": "User ID is 123" }</s>
+
+<b>GET /api/users/456 HTTP/1.1</b>   <i># same route pattern, different value</i>
+<b>HTTP/1.1 200 OK</b>
+<s>{ "message": "User ID is 456" }</s></pre>
+<figure>
+<img src="images/06-04-dynamic-route-buttons.jpg" width="1032" height="380" loading="lazy" decoding="async" alt="Two buttons, one route">
+<figcaption><b>Two buttons, one route</b>"Fetch User 123" and "Fetch User 456" hit different URLs, but the server has only one pattern registered for both.</figcaption>
+</figure>
+
+<figure>
+<img src="images/06-05-api-users-123.jpg" width="1500" height="1471" loading="lazy" decoding="async" alt="GET /api/users/123">
+<figcaption><b><code>GET /api/users/123</code></b>The history now shows <code>/api/users/123</code> and <code>/api/users/456</code> as separate entries, both <code>200</code>. To the server they matched the same pattern; the difference arrived as a parameter.</figcaption>
+</figure>
+
+
+<div class="plain">
+<p class="tag">Why you can't just register both</p>
+<p>You have a million users. You are not going to write a million routes. So instead of matching an exact string, the server matches a <strong>pattern with a slot in it</strong>, and pulls whatever landed in that slot out as a named value.</p>
+<p>That named value is the <strong>path parameter</strong>. One pattern, unlimited URLs, one handler.</p>
+</div>
+
+<blockquote><p>Just to give you an idea, this is what the route matching part in the server looks like. Let's say the handler is called <code>r</code>, so <code>r.get</code> — and in the matching part it is saying the string <code>/api/users/:id</code>. This part matches the method and this part matches the route.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 330" role="img" aria-label="How a route pattern with a colon parameter matches an incoming URL">
+<defs><marker id="d4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#8695A3" letter-spacing="0.5">WHAT YOU WRITE IN THE SERVER</text>
+<rect x="16" y="32" width="424" height="44" rx="3" fill="#131C25"/>
+<text x="34" y="60" font-family="IBM Plex Mono, monospace" font-size="15" fill="#D6DEE6">r.<tspan fill="#7FD4C1">get</tspan>( <tspan fill="#E8B48A">"/api/users/</tspan><tspan fill="#C5A3E0">:id</tspan><tspan fill="#E8B48A">"</tspan>, handler )</text>
+
+<line x1="90" y1="80" x2="90" y2="102" stroke="#2D7D5A" stroke-width="1.4" marker-end="url(#d4)"/>
+<text x="76" y="118" font-family="IBM Plex Sans" font-size="11" fill="#2D7D5A">matches the method</text>
+<line x1="330" y1="80" x2="330" y2="102" stroke="#5B4B8A" stroke-width="1.4" marker-end="url(#d4)"/>
+<text x="300" y="118" font-family="IBM Plex Sans" font-size="11" fill="#5B4B8A">the variable slot</text>
+
+<text x="470" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#8695A3" letter-spacing="0.5">WHAT ARRIVES</text>
+<rect x="470" y="32" width="274" height="44" rx="3" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.6"/>
+<text x="607" y="60" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="15" fill="#16202B">GET /api/users/123</text>
+
+<line x1="16" y1="140" x2="744" y2="140" stroke="#DDE3E9"/>
+<text x="16" y="164" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#8695A3" letter-spacing="0.5">SEGMENT BY SEGMENT</text>
+
+<rect x="60" y="178" width="120" height="34" rx="3" fill="#F8FAFB" stroke="#CBD4DC"/>
+<text x="120" y="200" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#16202B">/api</text>
+<rect x="196" y="178" width="140" height="34" rx="3" fill="#F8FAFB" stroke="#CBD4DC"/>
+<text x="266" y="200" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#16202B">/users</text>
+<rect x="352" y="178" width="140" height="34" rx="3" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.8"/>
+<text x="422" y="200" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#16202B">:id</text>
+
+<line x1="120" y1="216" x2="120" y2="240" stroke="#2D7D5A" stroke-width="1.4" marker-end="url(#d4)"/>
+<line x1="266" y1="216" x2="266" y2="240" stroke="#2D7D5A" stroke-width="1.4" marker-end="url(#d4)"/>
+<line x1="422" y1="216" x2="422" y2="240" stroke="#5B4B8A" stroke-width="1.8" marker-end="url(#d4)"/>
+
+<rect x="60" y="244" width="120" height="34" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="120" y="266" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#16202B">/api</text>
+<rect x="196" y="244" width="140" height="34" rx="3" fill="#DCEBE3" stroke="#2D7D5A"/>
+<text x="266" y="266" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#16202B">/users</text>
+<rect x="352" y="244" width="140" height="34" rx="3" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.8"/>
+<text x="422" y="266" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#16202B">/123</text>
+
+<text x="120" y="296" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#2D7D5A">literal · must match</text>
+<text x="266" y="296" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#2D7D5A">literal · must match</text>
+<text x="422" y="296" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#5B4B8A">anything · captured</text>
+
+<line x1="496" y1="261" x2="536" y2="261" stroke="#9C4A18" stroke-width="1.6" marker-end="url(#d4)"/>
+<rect x="540" y="238" width="204" height="46" rx="3" fill="#F6E8DE" stroke="#9C4A18" stroke-width="1.5"/>
+<text x="642" y="258" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#16202B">params.id === "123"</text>
+<text x="642" y="275" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#9C4A18">a string, always — even when it looks like a number</text>
+</svg>
+<p class="cap"><b>The matching, segment by segment</b>Two literals that must match exactly, one slot that accepts anything and hands its contents to the handler under the name you chose.</p>
+</div>
+
+<blockquote><p>It looks like a number, but in route parameters or in route paths, whatever — numbers, special characters — everything is converted into a string. So this thing gets inserted into this slot, this dynamic parameter slot which we are calling <code>id</code>.</p></blockquote>
+
+<div class="plain">
+<p class="tag">Three things that trip people up</p>
+<dl>
+<dt>The colon is a convention, not a law</dt>
+<dd>The video makes this point explicitly, and it's worth repeating: <code>:id</code> is what Express, Rails, Laravel and most others use, but it isn't part of HTTP. Some frameworks write <code>{id}</code> or <code>&lt;id&gt;</code> or <code>[id]</code>. The <em>idea</em> is universal; the punctuation is house style.</dd>
+<dt>Everything is a string</dt>
+<dd><code>params.id</code> is <code>"123"</code>, not <code>123</code>. Forgetting this produces a genuinely common class of bug: <code>"123" === 123</code> is false in JavaScript, and a database query comparing a string to an integer column may quietly return nothing. Convert explicitly, and validate while you're there.</dd>
+<dt>A slot matches one segment</dt>
+<dd><code>/api/users/:id</code> matches <code>/api/users/123</code> but not <code>/api/users/123/posts</code>. The slash is a boundary the parameter cannot cross — which is exactly what makes nesting work in section six.</dd>
+</dl>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>A form with a blank on it. "Please deliver to flat ___ , Wilson House." The building and the word "flat" are printed; the blank takes whatever you write. One form, three hundred flats — and you don't print three hundred forms.</p>
+</div>
+
+<div class="sec">
+<p class="tag">Security note · a path parameter is user input</p>
+<p>It looks like part of your own URL structure, which makes it feel trustworthy. It isn't. <code>123</code> is whatever the caller typed, and so is <code>' OR 1=1--</code> and <code>../../etc/passwd</code>. Path parameters flow straight into database queries and file lookups, which makes them a first-class injection surface — treat them exactly as you would a form field.</p>
+<p>The subtler risk is <strong>IDOR</strong> — insecure direct object reference. <code>GET /api/users/123</code> works; the attacker tries <code>/api/users/124</code>. If your handler fetches by ID without checking whether <em>this</em> caller may see <em>that</em> user, you have just published your database one row at a time. The route matched correctly and the bug is entirely in what the handler forgot to ask. This is authorization, from post 03, at the exact point where it usually goes missing.</p>
+</div>
+</section>
+
+<!-- ══════════════ 4 ══════════════ -->
+<section id="query">
+<div class="part-rule"><span>Four</span></div>
+<h2 class="head">Query parameters</h2>
+
+<blockquote><p>The route is <code>/api/search?query=some+value</code>. This part we understand — <code>/api/search</code> is the address we want to go to. The thing to focus on here is the query part: the question mark, and the key and the value. This is called a query parameter.</p></blockquote>
+
+<pre><b>GET /api/search?query=some+value HTTP/1.1</b>
+<u>Host</u>: localhost:3001
+
+<b>HTTP/1.1 200 OK</b>
+<u>Content-Length</u>: 44
+<s>{ "message": "Search results for: some value" }</s></pre>
+<figure>
+<img src="images/06-06-the-query-params-form.jpg" width="1098" height="376" loading="lazy" decoding="async" alt="The query params form">
+<figcaption><b>The query params form</b>Whatever is typed here ends up after the <code>?</code> rather than in the path — because it describes the search, not the resource.</figcaption>
+</figure>
+
+<figure>
+<img src="images/06-07-api-search-query.jpg" width="1500" height="884" loading="lazy" decoding="async" alt="GET /api/search?query=some+value">
+<figcaption><b><code>GET /api/search?query=some+value</code></b>The path is <code>/api/search</code>; everything from the <code>?</code> onward is the query string. Note the space encoded as <code>+</code>, and that the response echoes it back decoded.</figcaption>
+</figure>
+
+
+<div class="plain">
+<p class="tag">Reading the syntax</p>
+<p><code>?</code> opens the query string. <code>key=value</code> is one pair. <code>&amp;</code> joins more: <code>?page=2&amp;limit=20&amp;sort=desc</code>.</p>
+<p>And note <code>some+value</code> in the capture — the space became a <code>+</code>. Query strings can't contain raw spaces, so they're <strong>URL-encoded</strong>: spaces become <code>+</code> or <code>%20</code>, and anything else with special meaning becomes a <code>%</code> escape (<code>&amp;</code> → <code>%26</code>, <code>/</code> → <code>%2F</code>). The server decodes before your handler sees it, which is why the response says <code>some value</code> with a space.</p>
+</div>
+
+<blockquote><p>In POST requests or PUT requests we have the body of the request — we can use the body to send some kind of data. But in the case of GET requests, in REST APIs, GET requests don't have a body. So how do you want to send some value in a GET request?</p></blockquote>
+
+<blockquote><p>Let's suppose we want to send it in the path parameter. What will it look like? <code>/api/search/some value</code>. Technically it's possible, but it's very hard to maintain and it defeats the whole purpose of REST APIs — providing semantic expressions to API endpoints.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 320" role="img" aria-label="Path parameters identify, query parameters modify">
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#0E6E7E" letter-spacing="0.5">PATH PARAMETER — IDENTIFIES</text>
+<rect x="16" y="32" width="350" height="40" rx="3" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.6"/>
+<text x="191" y="58" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="14" fill="#16202B">/api/users/123</text>
+<text x="16" y="94" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">"the user whose id is 123"</text>
+<text x="16" y="116" font-family="IBM Plex Sans" font-size="11.5" fill="#0A4F5B">Names <tspan font-weight="600">which</tspan> thing. Remove it and the request is meaningless —</text>
+<text x="16" y="132" font-family="IBM Plex Sans" font-size="11.5" fill="#0A4F5B">there is no "the user" without an id.</text>
+<text x="16" y="156" font-family="IBM Plex Sans" font-size="11.5" fill="#0A4F5B">Part of the resource's identity, so part of its address.</text>
+
+<line x1="384" y1="16" x2="384" y2="290" stroke="#DDE3E9"/>
+
+<text x="404" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#5B4B8A" letter-spacing="0.5">QUERY PARAMETER — MODIFIES</text>
+<rect x="404" y="32" width="340" height="40" rx="3" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.6"/>
+<text x="574" y="58" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="14" fill="#16202B">/api/books?page=2&amp;limit=20</text>
+<text x="404" y="94" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">"the books — but just the second twenty"</text>
+<text x="404" y="116" font-family="IBM Plex Sans" font-size="11.5" fill="#5B4B8A">Adjusts <tspan font-weight="600">how</tspan> you want it. Remove it and the request still</text>
+<text x="404" y="132" font-family="IBM Plex Sans" font-size="11.5" fill="#5B4B8A">makes perfect sense — you just get the default view.</text>
+<text x="404" y="156" font-family="IBM Plex Sans" font-size="11.5" fill="#5B4B8A">Optional, unordered, repeatable.</text>
+
+<line x1="16" y1="182" x2="744" y2="182" stroke="#DDE3E9"/>
+<text x="16" y="206" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#B04A3F" letter-spacing="0.5">THE TEST — WOULD DROPPING IT STILL MEAN SOMETHING?</text>
+
+<rect x="16" y="220" width="350" height="62" rx="3" fill="#F7E3E0" stroke="#B04A3F" stroke-width="1.4"/>
+<text x="32" y="242" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#16202B">/api/users</text>
+<text x="32" y="262" font-family="IBM Plex Sans" font-size="11.5" fill="#B04A3F">valid — but a completely different request:</text>
+<text x="32" y="276" font-family="IBM Plex Sans" font-size="11.5" fill="#B04A3F">all users, not one. So the id was identity.</text>
+
+<rect x="404" y="220" width="340" height="62" rx="3" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.4"/>
+<text x="420" y="242" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#16202B">/api/books</text>
+<text x="420" y="262" font-family="IBM Plex Sans" font-size="11.5" fill="#2D7D5A">the same request, with defaults applied.</text>
+<text x="420" y="276" font-family="IBM Plex Sans" font-size="11.5" fill="#2D7D5A">So page and limit were modifiers.</text>
+</svg>
+<p class="cap"><b>The rule that decides which to use</b>Ask whether the value is part of <em>what you're asking for</em> or part of <em>how you want it served</em>. Identity goes in the path; everything else goes in the query.</p>
+</div>
+
+<blockquote><p>For example, let's say it's a request about fetching paginated data — you want to fetch a list of books which are paginated. The server returns an object, and inside <code>data</code> you have an array of books, and it returns a set of metadata about the response: total, current page, total pages.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 340" role="img" aria-label="Pagination using query parameters">
+<defs><marker id="d5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#8695A3" letter-spacing="0.5">FIRST REQUEST — NO QUERY PARAMETERS AT ALL</text>
+<rect x="16" y="32" width="250" height="34" rx="3" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.5"/>
+<text x="141" y="54" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="13" fill="#16202B">GET /api/books</text>
+<line x1="270" y1="49" x2="320" y2="49" stroke="#0E6E7E" stroke-width="1.5" marker-end="url(#d5)"/>
+
+<rect x="324" y="26" width="420" height="132" rx="3" fill="#131C25"/>
+<text x="342" y="48" font-family="IBM Plex Mono, monospace" font-size="12" fill="#D6DEE6">{</text>
+<text x="358" y="66" font-family="IBM Plex Mono, monospace" font-size="12" fill="#7FD4C1">"data"<tspan fill="#D6DEE6">: [ … 20 books … ],</tspan></text>
+<text x="358" y="86" font-family="IBM Plex Mono, monospace" font-size="12" fill="#E8B48A">"total"<tspan fill="#D6DEE6">: 100,</tspan></text>
+<text x="358" y="104" font-family="IBM Plex Mono, monospace" font-size="12" fill="#E8B48A">"page"<tspan fill="#D6DEE6">: 1,</tspan></text>
+<text x="358" y="122" font-family="IBM Plex Mono, monospace" font-size="12" fill="#E8B48A">"limit"<tspan fill="#D6DEE6">: 20,</tspan></text>
+<text x="358" y="140" font-family="IBM Plex Mono, monospace" font-size="12" fill="#E8B48A">"totalPages"<tspan fill="#D6DEE6">: 5</tspan></text>
+<text x="342" y="154" font-family="IBM Plex Mono, monospace" font-size="12" fill="#D6DEE6">}</text>
+
+<text x="16" y="94" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">The server applies its</text>
+<text x="16" y="110" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">own defaults: page 1,</text>
+<text x="16" y="126" font-family="IBM Plex Sans" font-size="11.5" fill="#53616F">limit 20.</text>
+<text x="16" y="150" font-family="IBM Plex Sans" font-size="11.5" font-weight="600" fill="#9C4A18">And it tells you what</text>
+<text x="16" y="166" font-family="IBM Plex Sans" font-size="11.5" font-weight="600" fill="#9C4A18">it did.</text>
+
+<line x1="16" y1="186" x2="744" y2="186" stroke="#DDE3E9"/>
+<text x="16" y="210" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#8695A3" letter-spacing="0.5">SO THE CLIENT KNOWS HOW TO ASK FOR THE NEXT ONE</text>
+
+<rect x="16" y="224" width="300" height="34" rx="3" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.5"/>
+<text x="166" y="246" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="13" fill="#16202B">GET /api/books?page=2</text>
+<line x1="320" y1="241" x2="366" y2="241" stroke="#5B4B8A" stroke-width="1.5" marker-end="url(#d5)"/>
+<rect x="370" y="224" width="374" height="34" rx="3" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.5"/>
+<text x="557" y="246" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" fill="#16202B">books 21–40, and <tspan font-family="IBM Plex Mono, monospace">"page": 2</tspan> in the metadata</text>
+
+<text x="16" y="290" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">The same pattern carries filtering (<tspan font-family="IBM Plex Mono, monospace">?status=published</tspan>), sorting (<tspan font-family="IBM Plex Mono, monospace">?sort=date&amp;order=desc</tspan>) and search —</text>
+<text x="16" y="308" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">all optional, all combinable in any order, none of them changing which resource you're addressing.</text>
+</svg>
+<p class="cap"><b>Pagination, the canonical use</b>Note the shape of the bargain: the server returns not just the slice but enough metadata for the client to ask for the next one without guessing.</p>
+</div>
+
+<div class="plain">
+<p class="tag">Why GET has no body — and the honest caveat</p>
+<p>A <code>GET</code> is a request to read something, and everything needed to identify what you want belongs in the URL. That's what makes a GET bookmarkable, linkable and cacheable: the URL <em>is</em> the whole request. Put criteria in a body and you lose all three.</p>
+<p>The caveat, since you may run into it: HTTP doesn't strictly forbid a body on a GET. But proxies may strip it, caches will ignore it, and many client libraries refuse to send one. In practice the rule holds — if it's a read, it goes in the URL.</p>
+<p>The exception you'll eventually meet is a search so complex it won't fit in a URL (length limits sit around 2,000 characters in practice). The usual answer is a <code>POST</code> to a <code>/search</code> endpoint, knowingly trading cacheability for expressiveness.</p>
+</div>
+
+<div class="sec">
+<p class="tag">Security note · query strings are logged everywhere</p>
+<p>Paths and query strings are written to server access logs, proxy logs, CDN logs and browser history, and leak sideways via the <code>Referer</code> header from post 04. Bodies generally aren't.</p>
+<p>So anything secret must never travel in a query string. A password reset link like <code>?token=abc123</code> is a real and recurring vulnerability: it sits in logs indefinitely, and if the landing page loads any third-party script, the whole URL — token included — is handed to that third party in the <code>Referer</code>. Tokens belong in headers or bodies, not in URLs.</p>
+</div>
+</section>
+
+<!-- ══════════════ 5 ══════════════ -->
+<section id="nested">
+<div class="part-rule"><span>Five</span></div>
+<h2 class="head">Nested routes</h2>
+
+<blockquote><p>This is not really a type of routing, it's just a practice that you will see everywhere — because in REST APIs, for semantic expression, we often have to resort to nesting different types of resources, and the nested route is typically the result of that.</p></blockquote>
+
+<pre><b>GET /api/users/123/posts/456 HTTP/1.1</b>
+<u>Host</u>: localhost:3001
+
+<b>HTTP/1.1 200 OK</b>
+<u>Content-Length</u>: 33
+<s>{ "message": "User 123 - Post 456" }</s></pre>
+<figure>
+<img src="images/06-08-the-nested-route.jpg" width="1500" height="637" loading="lazy" decoding="async" alt="GET /api/users/123/posts/456">
+<figcaption><b><code>GET /api/users/123/posts/456</code></b>Two path parameters in one pattern. The response confirms the server pulled both out: <code>User 123 - Post 456</code>.</figcaption>
+</figure>
+
+
+<div class="plain">
+<p class="tag">What's actually new here</p>
+<p>Nothing, mechanically. This is one pattern — <code>/api/users/:userId/posts/:postId</code> — with two slots instead of one. The matching works exactly as in section three, twice.</p>
+<p>What's new is what it <em>expresses</em>: a relationship. The post belongs to the user. Reading left to right, each segment narrows the previous one, and the URL becomes a sentence.</p>
+</div>
+
+<blockquote><p>We can stop at different phases here. If you do <code>/api/users</code> it will return a list of all users. If we go one level deep again, <code>/api/users/123</code> — this is a unique route in itself. And that handler will return the information of this user whose ID is 123.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 340" role="img" aria-label="Each level of a nested route is a valid route in its own right">
+<defs><marker id="d6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#8695A3" letter-spacing="0.5">EACH LEVEL IS A ROUTE IN ITS OWN RIGHT</text>
+
+<rect x="16" y="32" width="330" height="40" rx="3" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.4"/>
+<text x="32" y="57" font-family="IBM Plex Mono, monospace" font-size="13" fill="#16202B">/api/users</text>
+<line x1="350" y1="52" x2="386" y2="52" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#d6)"/>
+<text x="394" y="57" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">every user</text>
+
+<rect x="16" y="82" width="330" height="40" rx="3" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.4"/>
+<text x="32" y="107" font-family="IBM Plex Mono, monospace" font-size="13" fill="#16202B">/api/users/<tspan fill="#5B4B8A" font-weight="600">123</tspan></text>
+<line x1="350" y1="102" x2="386" y2="102" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#d6)"/>
+<text x="394" y="107" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">one user</text>
+
+<rect x="16" y="132" width="330" height="40" rx="3" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.4"/>
+<text x="32" y="157" font-family="IBM Plex Mono, monospace" font-size="13" fill="#16202B">/api/users/<tspan fill="#5B4B8A" font-weight="600">123</tspan>/posts</text>
+<line x1="350" y1="152" x2="386" y2="152" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#d6)"/>
+<text x="394" y="157" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">all of that user's posts</text>
+
+<rect x="16" y="182" width="330" height="40" rx="3" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.8"/>
+<text x="32" y="207" font-family="IBM Plex Mono, monospace" font-size="13" fill="#16202B">/api/users/<tspan fill="#5B4B8A" font-weight="600">123</tspan>/posts/<tspan fill="#5B4B8A" font-weight="600">456</tspan></text>
+<line x1="350" y1="202" x2="386" y2="202" stroke="#2D7D5A" stroke-width="1.8" marker-end="url(#d6)"/>
+<text x="394" y="207" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#2D7D5A">that one post — the request in the capture</text>
+
+<line x1="8" y1="52" x2="8" y2="202" stroke="#CBD4DC" stroke-width="1.4"/>
+<text x="-128" y="-2" transform="rotate(-90)" font-family="IBM Plex Sans" font-size="11" fill="#8695A3">narrowing</text>
+
+<line x1="16" y1="246" x2="744" y2="246" stroke="#DDE3E9"/>
+<text x="16" y="270" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">Four separate handlers, four different answers. Nesting doesn't create a hierarchy in the server — it creates one in the <tspan font-weight="600">meaning</tspan>.</text>
+<rect x="16" y="284" width="728" height="44" rx="3" fill="#F6E8DE" stroke="#9C4A18" stroke-width="1.4"/>
+<text x="32" y="303" font-family="IBM Plex Sans" font-size="12.5" fill="#16202B">Read the last one aloud: <tspan font-style="italic">get · the users · the one numbered 123 · its posts · the one numbered 456.</tspan></text>
+<text x="32" y="320" font-family="IBM Plex Sans" font-size="12" fill="#9C4A18">That legibility is the entire justification for the convention.</text>
+</svg>
+<p class="cap"><b>Stopping at each level</b>You aren't obliged to register every level, but a well-designed API usually does — and each one means something a client might genuinely want.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>A postal address written backwards. Country, city, street, building, flat — each field only makes sense inside the one before it. "Flat 4" alone is useless; "Flat 4, 12 Wilson Street, Edinburgh" is a place. Nested routes are addresses with the same property.</p>
+</div>
+
+<div class="plain">
+<p class="tag">When not to nest</p>
+<p>Nesting is a convention, not an obligation, and it stops paying off quickly. <code>/api/orgs/3/teams/9/users/123/posts/456/comments/12</code> is technically fine and horrible to work with — and usually redundant, since comment 12 is unique on its own and the rest is decoration.</p>
+<p>The common rule of thumb is one level of nesting, occasionally two. Beyond that, expose the deep resource directly (<code>/api/comments/12</code>) and let filtering handle the relationship (<code>/api/posts/456/comments</code> or <code>/api/comments?postId=456</code>).</p>
+<p>There's a security edge here too. A nested URL <em>looks</em> like it enforces the relationship, and it doesn't. Nothing stops someone requesting <code>/api/users/999/posts/456</code> where post 456 belongs to user 123. If your handler reads only the post ID and ignores the user ID, it will happily serve it. The path expressed a relationship; only your code can check one.</p>
+</div>
+</section>
+
+<!-- ══════════════ 6 ══════════════ -->
+<section id="versioning">
+<div class="part-rule"><span>Six</span></div>
+<h2 class="head">Route versioning and deprecation</h2>
+
+<blockquote><p>This looks pretty much like our earlier request except it has this keyword, which is <code>v1</code> — it says <code>/api/v1/products</code>. And if you look at the second request it says <code>v2</code>. This is called route versioning. It is a very common practice in API endpoints.</p></blockquote>
+
+<pre><b>GET /api/v1/products HTTP/1.1</b>
+<b>HTTP/1.1 200 OK</b>
+<s>{ "data": [
+    { "id": 1, <u>"name"</u>: "Product 1", "price": 100 },
+    { "id": 2, <u>"name"</u>: "Product 2", "price": 200 }
+] }</s>
+
+<b>GET /api/v2/products HTTP/1.1</b>
+<b>HTTP/1.1 200 OK</b>
+<u>Content-Length</u>: 92
+<s>{ "data": [
+    { "id": 1, <u>"title"</u>: "Product 1", "price": 100 },
+    { "id": 2, <u>"title"</u>: "Product 2", "price": 200 }
+] }</s></pre>
+<figure>
+<img src="images/06-09-api-v2-products.jpg" width="1500" height="649" loading="lazy" decoding="async" alt="GET /api/v2/products">
+<figcaption><b><code>GET /api/v2/products</code></b>The history by now holds every route in this post. The version sits in the path like any other segment — the router doesn't treat it specially, which is precisely why the trick works.</figcaption>
+</figure>
+
+<figure>
+<img src="images/06-10-v1-and-v2-side-by-side.jpg" width="1500" height="983" loading="lazy" decoding="async" alt="v1 and v2, adjacent">
+<figcaption><b>v1 and v2, adjacent</b>Two rows, two <code>200</code>s, two live versions. The v2 body uses <code>title</code> where v1 used <code>name</code> — the entire breaking change, and both callers are served.</figcaption>
+</figure>
+
+
+<div class="plain">
+<p class="tag">The difference is one field name — and that's the point</p>
+<p><code>name</code> became <code>title</code>. Trivial to type, catastrophic to deploy: every client reading <code>product.name</code> gets <code>undefined</code> the moment you ship it. That is a <strong>breaking change</strong> — one that requires the caller to change their code.</p>
+<p>And you can't coordinate the deployment. Mobile apps sit on phones for months. Partner integrations are written by people you've never met. There is no moment at which "everyone has updated."</p>
+</div>
+
+<blockquote><p>Your first option is changing the whole route — you can say <code>/api/new-products</code>. Or what you can do is add that to your versioning: in version one of our API we were serving responses in this format, and new requirements came in, and in version two we are serving in this format.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 360" role="img" aria-label="Versioning lets both formats coexist during a migration window">
+<defs><marker id="d7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<text x="16" y="20" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#B04A3F" letter-spacing="0.5">WITHOUT VERSIONING — ONE ROUTE, ONE SHAPE</text>
+<rect x="16" y="32" width="200" height="34" rx="3" fill="#F7E3E0" stroke="#B04A3F" stroke-width="1.5"/>
+<text x="116" y="54" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#16202B">/api/products</text>
+<line x1="220" y1="49" x2="262" y2="49" stroke="#B04A3F" stroke-width="1.5" marker-end="url(#d7)"/>
+<text x="270" y="44" font-family="IBM Plex Sans" font-size="12" fill="#B04A3F">you change <tspan font-family="IBM Plex Mono, monospace">name</tspan> to <tspan font-family="IBM Plex Mono, monospace">title</tspan> and deploy</text>
+<text x="270" y="62" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#B04A3F">every existing client breaks, simultaneously, with no warning</text>
+
+<line x1="16" y1="86" x2="744" y2="86" stroke="#DDE3E9"/>
+
+<text x="16" y="110" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#2D7D5A" letter-spacing="0.5">WITH VERSIONING — BOTH LIVE AT ONCE</text>
+
+<rect x="16" y="124" width="200" height="44" rx="3" fill="#DCEAEC" stroke="#0E6E7E" stroke-width="1.5"/>
+<text x="116" y="144" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#16202B">/api/v1/products</text>
+<text x="116" y="160" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#0A4F5B">{ id, name, price }</text>
+
+<rect x="16" y="180" width="200" height="44" rx="3" fill="#DCEBE3" stroke="#2D7D5A" stroke-width="1.8"/>
+<text x="116" y="200" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#16202B">/api/v2/products</text>
+<text x="116" y="216" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#2D7D5A">{ id, title, price }</text>
+
+<line x1="220" y1="146" x2="262" y2="146" stroke="#0E6E7E" stroke-width="1.4" marker-end="url(#d7)"/>
+<line x1="220" y1="202" x2="262" y2="202" stroke="#2D7D5A" stroke-width="1.4" marker-end="url(#d7)"/>
+<rect x="266" y="126" width="180" height="40" rx="3" fill="#F8FAFB" stroke="#CBD4DC"/>
+<text x="356" y="151" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#53616F">the old web app</text>
+<rect x="266" y="182" width="180" height="40" rx="3" fill="#F8FAFB" stroke="#CBD4DC"/>
+<text x="356" y="200" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#53616F">the new mobile app</text>
+<text x="356" y="215" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#8695A3">and eventually everyone else</text>
+
+<text x="466" y="150" font-family="IBM Plex Sans" font-size="12" fill="#0E6E7E">keeps working, untouched</text>
+<text x="466" y="205" font-family="IBM Plex Sans" font-size="12" fill="#2D7D5A">gets the new shape</text>
+
+<line x1="16" y1="244" x2="744" y2="244" stroke="#DDE3E9"/>
+<text x="16" y="268" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#9C4A18" letter-spacing="0.5">THE MIGRATION WINDOW</text>
+
+<line x1="60" y1="300" x2="700" y2="300" stroke="#CBD4DC" stroke-width="1.5"/>
+<circle cx="90" cy="300" r="6" fill="#2D7D5A"/>
+<text x="90" y="290" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#2D7D5A">v2 ships</text>
+<text x="90" y="322" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#8695A3">both live</text>
+<circle cx="300" cy="300" r="6" fill="#9C4A18"/>
+<text x="300" y="290" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#9C4A18">v1 announced deprecated</text>
+<text x="300" y="322" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#8695A3">clients start migrating</text>
+<circle cx="520" cy="300" r="6" fill="#9C4A18"/>
+<text x="520" y="290" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#9C4A18">sunset date passes</text>
+<text x="520" y="322" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#8695A3">traffic on v1 near zero</text>
+<circle cx="690" cy="300" r="6" fill="#B04A3F"/>
+<text x="690" y="290" text-anchor="middle" font-family="IBM Plex Sans" font-size="10.5" fill="#B04A3F">v1 removed</text>
+<text x="690" y="322" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#8695A3">one route again</text>
+</svg>
+<p class="cap"><b>What versioning actually buys</b>Not the ability to change things — you always had that. The ability to change them <em>without synchronising every client on earth to your deploy</em>.</p>
+</div>
+
+<blockquote><p>You can even eventually deprecate v1. You can send a notice to your frontend engineers that after v2 is released, v1 is deprecated — so in the next release all the engineers can migrate to v2. They have a window where they have the opportunity to migrate.</p></blockquote>
+
+<div class="plain">
+<p class="tag">Deprecation is a process, not a deletion</p>
+<p><strong>Deprecated</strong> means "still working, but don't build anything new on it, and move off it." It is a warning with a deadline attached, and the gap between the warning and the deletion is the whole value of the practice.</p>
+<p>In a serious API the steps are: announce it; return a <code>Deprecation</code> and <code>Sunset</code> header on every v1 response so automated clients can notice; watch the traffic on v1 fall; and only remove it when it's near zero. Removing it on schedule regardless of traffic is how you break a customer you didn't know you had.</p>
+<p>Worth noting that URL versioning isn't the only option — some APIs version through a header (<code>Accept: application/vnd.example.v2+json</code>), which keeps URLs stable at the cost of being invisible in a browser address bar and harder to debug. Putting <code>v1</code> in the path wins on legibility, which is usually the right trade.</p>
+</div>
+
+<div class="key">
+<p class="tag">What counts as breaking</p>
+<p>Removing a field, renaming one, changing its type, adding a required parameter, or making validation stricter — all breaking. <em>Adding</em> an optional field or a new endpoint generally isn't, provided clients ignore what they don't recognise. That asymmetry is why mature APIs grow by addition and almost never by subtraction.</p>
+</div>
+</section>
+
+<!-- ══════════════ 7 ══════════════ -->
+<section id="catchall">
+<div class="part-rule"><span>Seven</span></div>
+<h2 class="head">The catch-all route</h2>
+
+<blockquote><p>We are sending requests to a route which the server does not serve. We are doing <code>/api/v3/products</code> — at this point the server does not serve responses for this route, it does not have a handler.</p></blockquote>
+
+<pre><b>GET /api/v3/products HTTP/1.1</b>
+<u>Host</u>: localhost:3001
+
+<b>HTTP/1.1 404 Not Found</b>
+<u>Content-Type</u>: application/json; charset=utf-8
+<u>Content-Length</u>: 29
+<s>{ "message": "Route not found" }</s></pre>
+<figure>
+<img src="images/06-11-the-catch-all-button.jpg" width="1110" height="258" loading="lazy" decoding="async" alt="The catch-all demo">
+<figcaption><b>The catch-all demo</b>"Fetch Products (v3)" — a version that was never built. Nothing on the server handles it.</figcaption>
+</figure>
+
+<figure>
+<img src="images/06-12-route-not-found.jpg" width="1500" height="927" loading="lazy" decoding="async" alt="404 Not Found, in JSON">
+<figcaption><b><code>404 Not Found</code>, in JSON</b>The status column reads 404 and the body is <code>{"message": "Route not found"}</code> — the API's own error shape rather than a framework HTML page. That consistency is the whole point of the catch-all.</figcaption>
+</figure>
+
+
+<blockquote><p>Typically what the server will do is, in the end, after serving all the different routes and all the methods associated with those routes — in the end it will do <code>/*</code>. Whatever request, after going through all the previous route-matching algorithms, whatever request reaches here will be mapped to a handler, and that handler will send a user-friendly message.</p></blockquote>
+
+<div class="dia">
+<svg viewBox="0 0 760 330" role="img" aria-label="The router tries each route in order and falls through to the catch-all">
+<defs><marker id="d8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<rect x="248" y="14" width="264" height="36" rx="3" fill="#E4E0EF" stroke="#5B4B8A" stroke-width="1.6"/>
+<text x="380" y="38" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="13" fill="#16202B">GET /api/v3/products</text>
+
+<line x1="380" y1="52" x2="380" y2="72" stroke="#5B4B8A" stroke-width="1.5" marker-end="url(#d8)"/>
+
+<rect x="200" y="76" width="360" height="30" rx="3" fill="#F8FAFB" stroke="#CBD4DC"/>
+<text x="216" y="96" font-family="IBM Plex Mono, monospace" font-size="12" fill="#53616F">GET /api/books</text>
+<text x="600" y="96" font-family="IBM Plex Sans" font-size="11.5" fill="#B04A3F">✗ no match</text>
+<line x1="380" y1="106" x2="380" y2="116" stroke="#CBD4DC" stroke-width="1.4" marker-end="url(#d8)"/>
+
+<rect x="200" y="120" width="360" height="30" rx="3" fill="#F8FAFB" stroke="#CBD4DC"/>
+<text x="216" y="140" font-family="IBM Plex Mono, monospace" font-size="12" fill="#53616F">GET /api/users/:id</text>
+<text x="600" y="140" font-family="IBM Plex Sans" font-size="11.5" fill="#B04A3F">✗ no match</text>
+<line x1="380" y1="150" x2="380" y2="160" stroke="#CBD4DC" stroke-width="1.4" marker-end="url(#d8)"/>
+
+<rect x="200" y="164" width="360" height="30" rx="3" fill="#F8FAFB" stroke="#CBD4DC"/>
+<text x="216" y="184" font-family="IBM Plex Mono, monospace" font-size="12" fill="#53616F">GET /api/v1/products</text>
+<text x="600" y="184" font-family="IBM Plex Sans" font-size="11.5" fill="#B04A3F">✗ no match</text>
+<line x1="380" y1="194" x2="380" y2="204" stroke="#CBD4DC" stroke-width="1.4" marker-end="url(#d8)"/>
+
+<rect x="200" y="208" width="360" height="30" rx="3" fill="#F8FAFB" stroke="#CBD4DC"/>
+<text x="216" y="228" font-family="IBM Plex Mono, monospace" font-size="12" fill="#53616F">GET /api/v2/products</text>
+<text x="600" y="228" font-family="IBM Plex Sans" font-size="11.5" fill="#B04A3F">✗ no match</text>
+<line x1="380" y1="238" x2="380" y2="250" stroke="#9C4A18" stroke-width="1.6" marker-end="url(#d8)"/>
+
+<rect x="200" y="254" width="360" height="34" rx="3" fill="#F6E8DE" stroke="#9C4A18" stroke-width="1.8"/>
+<text x="216" y="276" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="600" fill="#16202B">/*</text>
+<text x="252" y="276" font-family="IBM Plex Sans" font-size="12" fill="#9C4A18">— anything still unmatched</text>
+<text x="596" y="276" font-family="IBM Plex Sans" font-size="11.5" font-weight="600" fill="#2D7D5A">✓ matches</text>
+
+<text x="16" y="310" font-family="IBM Plex Sans" font-size="12.5" fill="#53616F">Order matters, and the catch-all must be registered last. Put it first and it swallows every request your API was supposed to handle.</text>
+</svg>
+<p class="cap"><b>Fall-through, in order</b>The router walks its table top to bottom. The catch-all isn't clever — it's simply the last entry, and it matches everything.</p>
+</div>
+
+<blockquote><p>So instead of just sending a null response, which is the default behaviour if you don't do catch-all handling, we are just sending a user-friendly message to let the client know that we don't cater to this endpoint.</p></blockquote>
+
+<div class="plain">
+<p class="tag">Why a default 404 isn't good enough</p>
+<p>Without a catch-all, an unmatched request still gets <em>something</em> — usually the framework's stock HTML error page. Which means your JSON API, on its worst day, hands a client an HTML document. The client's <code>response.json()</code> throws a parse error, and the developer on the other end spends an hour debugging their own code before realising the endpoint never existed.</p>
+<p>A catch-all makes failure consistent: same content type, same error shape, every time. It costs three lines and removes an entire category of confusing bug.</p>
+</div>
+
+<div class="anal">
+<p class="tag">Analogy</p>
+<p>The <em>else</em> branch at the end of a long chain of conditions. You could leave it out and let control fall off the end, but then the failure is silent and shapeless. Writing it means every possible input has a defined outcome.</p>
+</div>
+
+<div class="sec">
+<p class="tag">Security note · what your 404 page reveals</p>
+<p>Two things worth getting right. First, keep it terse — <code>{"message": "Route not found"}</code> is ideal. Framework defaults sometimes echo the requested path back into the page, which is a reflected-XSS opportunity if it isn't escaped, and sometimes include a stack trace, which is the disclosure problem from post 03 all over again.</p>
+<p>Second, be consistent. If unknown routes 404 but existing-yet-forbidden routes 403, an attacker can map your entire private API surface by watching which paths answer which — the same 403-versus-404 tension from post 05, now at the routing layer rather than the record layer.</p>
+</div>
+</section>
+
+<!-- ══════════════ 8 ══════════════ -->
+<section id="glossary">
+<div class="part-rule"><span>Eight</span></div>
+<h2 class="head">Recap, then every word defined</h2>
+
+<div class="plain">
+<p class="tag">The whole post in one paragraph</p>
+<p>The method is the <strong>what</strong> and the route is the <strong>where</strong>; a server joins the two into one lookup key and maps it to a <strong>handler</strong>. That's the definition, and everything else is a refinement of it. A <strong>static route</strong> is a fixed string with no variables in it — <code>GET /api/books</code> and <code>POST /api/books</code> are two distinct routes that merely share a path, which is why a mismatched verb is a 405 rather than a 404. A <strong>dynamic route</strong> replaces one segment with a slot, <code>/api/users/:id</code>, so a single pattern serves a million URLs; whatever lands in the slot arrives as a string and is user input like any other, which is where IDOR bugs come from. <strong>Query parameters</strong> ride after the <code>?</code> and do a different job: path parameters <em>identify</em>, query parameters <em>modify</em> — filter, sort, page — and they exist because a GET has no body and its URL must carry everything. <strong>Nested routes</strong> stack slots to express a relationship, each level a valid route in its own right, and the nesting expresses a relationship it cannot enforce. <strong>Versioning</strong> puts <code>v1</code> and <code>v2</code> in the path so a breaking change can ship without every client changing on the same day, with deprecation providing the window. And the <strong>catch-all</strong> sits last in the table, matching whatever survived, so that an unknown route fails in your API's own shape rather than the framework's.</p>
+</div>
+
+<h3 class="sub">Glossary</h3>
+
+<details class="jargon" open>
+<summary>The core idea</summary>
+<div class="body">
+<dl>
+<dt>Routing</dt><dd>Mapping a method and a URL path to server-side logic.</dd>
+<dt>Route</dt><dd>A pattern the server knows about, plus the code to run when it matches.</dd>
+<dt>Handler</dt><dd>The function a matched route calls. Does the work, returns the response.</dd>
+<dt>Resource</dt><dd>The noun a route is about — <code>books</code>, <code>users</code>. Paths name things; methods name actions.</dd>
+<dt>Router</dt><dd>The component holding the table of routes and walking it, in order, for each request.</dd>
+<dt>Endpoint</dt><dd>Loosely, one usable method-and-path combination. Used interchangeably with "route" in practice.</dd>
+</dl>
+</div>
+</details>
+
+<details class="jargon">
+<summary>Parts of a URL</summary>
+<div class="body">
+<dl>
+<dt>Scheme</dt><dd><code>https://</code> — which protocol.</dd>
+<dt>Host</dt><dd>The domain. Resolved by DNS before the request is sent (post 03).</dd>
+<dt>Port</dt><dd>Which process on that machine. Implied by the scheme unless written.</dd>
+<dt>Path</dt><dd>Everything from the first <code>/</code> to the <code>?</code>. What the router matches on.</dd>
+<dt>Segment</dt><dd>One slash-delimited piece of the path. A path parameter fills exactly one.</dd>
+<dt>Query string</dt><dd>Everything after the <code>?</code>. Key–value pairs joined by <code>&amp;</code>.</dd>
+<dt>Fragment</dt><dd>Everything after the <code>#</code>. Never sent to the server at all.</dd>
+<dt>URL encoding</dt><dd>Escaping characters that can't appear literally — space as <code>+</code> or <code>%20</code>, <code>&amp;</code> as <code>%26</code>.</dd>
+</dl>
+</div>
+</details>
+
+<details class="jargon">
+<summary>Kinds of route</summary>
+<div class="body">
+<dl>
+<dt>Static route</dt><dd>A fixed string with no variable segments. Matches only itself.</dd>
+<dt>Dynamic route</dt><dd>A pattern with at least one variable slot.</dd>
+<dt>Path parameter</dt><dd>The captured value in that slot. Identifies <em>which</em> resource. Always a string.</dd>
+<dt>Query parameter</dt><dd>A key–value pair after the <code>?</code>. Modifies <em>how</em> you want it. Optional and unordered.</dd>
+<dt>Nested route</dt><dd>Stacked segments expressing a relationship: <code>/users/123/posts/456</code>.</dd>
+<dt>Catch-all route</dt><dd><code>/*</code> registered last, matching anything that fell through. Returns a consistent 404.</dd>
+<dt>Route matching</dt><dd>Walking the table in order and taking the first pattern that fits.</dd>
+</dl>
+</div>
+</details>
+
+<details class="jargon">
+<summary>Versioning and change</summary>
+<div class="body">
+<dl>
+<dt>Route versioning</dt><dd>Putting <code>v1</code>, <code>v2</code> in the path so incompatible shapes can coexist.</dd>
+<dt>Breaking change</dt><dd>Any change requiring callers to change their code: removing or renaming a field, changing a type, adding a requirement.</dd>
+<dt>Deprecation</dt><dd>Declaring something still working but unsupported, with a date attached.</dd>
+<dt>Sunset</dt><dd>The date the deprecated thing is actually removed. Also a response header announcing it.</dd>
+<dt>Migration window</dt><dd>The period where both versions run, during which clients move across at their own pace.</dd>
+<dt>Backwards compatibility</dt><dd>New server, old clients, still working.</dd>
+</dl>
+</div>
+</details>
+
+<details class="jargon">
+<summary>Things that go wrong</summary>
+<div class="body">
+<dl>
+<dt>IDOR</dt><dd>Insecure direct object reference — changing an ID in a path to reach someone else's data because the handler never checked permission.</dd>
+<dt>404 vs 405</dt><dd>No such path vs path exists but not for that method. The distinction comes straight from method-plus-path being the key.</dd>
+<dt>Route shadowing</dt><dd>A broad pattern registered before a specific one, swallowing requests meant for it. The catch-all is the extreme case.</dd>
+<dt>Over-nesting</dt><dd>Paths so deep they're unusable, and whose depth implies a check the code isn't doing.</dd>
+<dt>Secrets in URLs</dt><dd>Tokens in query strings, which end up in access logs, browser history and the <code>Referer</code> header.</dd>
+</dl>
+</div>
+</details>
+
+<div class="key">
+<p class="tag">If you remember three things</p>
+<p><strong>One</strong> — the method and the path together form the key, so the same path can safely mean several different operations and the verb is never redundant. <strong>Two</strong> — path parameters identify and query parameters modify, and choosing correctly between them is most of what makes an API readable. <strong>Three</strong> — a route that <em>looks</em> like it enforces a relationship or an identity enforces nothing at all; every path parameter is untrusted input, and the check has to live in the handler.</p>
+</div>
+</section>
+
+<footer>
+<div class="nextprev">
+<a href="./05-http-pt-2.html"><span class="lbl">← PREVIOUS</span><span class="ttl">Status codes, caching, and the rest of HTTP</span></a>
+</div>
+  <p>Annotated from the walkthrough video. Whiteboard sketches redrawn as vector diagrams; proxy captures transcribed as text; definitions, analogies and security notes added.</p>
+</footer>
+
+</div>
+</body>
+</html>
